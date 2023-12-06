@@ -161,3 +161,9 @@ cython_debug/
 
 # Ignore dynaconf secret files
 .secrets.*
+
+# AOC Inputs
+inputs/
+
+# Database File
+database.db
