@@ -19,6 +19,7 @@ dashmap = "5"
 atoi_radix10 = { git = "https://github.com/gilescope/atoi_radix10" }
 btoi = "0.4"
 nom = "7"
+ascii = "1.1.0"
 
 [dev-dependencies]
 criterion = { version = "0.5.1" }

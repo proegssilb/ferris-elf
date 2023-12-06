@@ -1,7 +1,5 @@
-mod aocsoln;
+use ascii::{AsAsciiStr, AsciiStr, IntoAsciiString};
 mod code;
-
-use crate::aocsoln::AOCSolution;
 trait IntoInput<T: Copy> {
     fn into_input(self) -> T;
 }
@@ -27,8 +25,11 @@ impl IntoInput<&str> for Vec<u8> {
 fn main() {
     //TODO: test that the answer is correct
     let input = std::fs::read("inputs/input1.txt").unwrap();
-    let part1 = format!("{}", code::Soln::aoc_part1(&input));
-    println!("Part 1 = {part1}");
-    let part2 = format!("{}", code::Soln::aoc_part2(&input));
-    println!("Part 2 = {part2}");
+    let input_ascii: &AsciiStr = input.as_ascii_str().unwrap();
+    let ans1 = code::Soln::run(input_ascii.as_ref());
+    let ans2 = code::Soln::run_ascii(input_ascii.as_ref());
+    let ans3 = code::Soln::run_bytes(input_ascii.as_bytes());
+
+    // let answer = format!("{}", code::Soln::run(&input));
+    println!("Answers = {ans1} = {ans2} = {ans3}");
 }

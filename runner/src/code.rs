@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
+
+use ascii::{AsAsciiStr, AsciiStr};
 
 // structs and types cannot be part of struct impls
 #[derive(Clone)]
@@ -188,16 +190,17 @@ impl Soln {
             0,
         )
     }
-}
 
-impl crate::aocsoln::AOCSolution for Soln {
-    fn aoc_part1(raw_input: &[u8]) -> String {
-        let input = std::str::from_utf8(raw_input).unwrap();
-        Self::part_one(&Self::parse(input)).to_string()
+    //These are some of the possible signatures user submitted code could have.
+    pub fn run(input: &str) -> impl Display {
+        Self::part_one(&Self::parse(input))
     }
-
-    fn aoc_part2(raw_input: &[u8]) -> String {
-        let input = std::str::from_utf8(raw_input).unwrap();
-        unimplemented!()
+    pub fn run_ascii(input: &AsciiStr) -> impl Display {
+        let input_str = input.as_str();
+        Self::run(input_str)
+    }
+    pub fn run_bytes(input: &[u8]) -> impl Display {
+        let input_str = input.as_ascii_str().unwrap();
+        Self::run_ascii(input_str)
     }
 }
