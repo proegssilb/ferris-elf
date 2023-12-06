@@ -5,7 +5,7 @@ filename = "database.db"
 support_info = "Ping {} for any questions"
 rust_version_info = "latest nightly from rustup"
 hw_info = "Benchmarks are run in a controlled sandbox with limited resources."
-methedology = "We use criterion to benchmark. Submissions may be manually reviewed."
+methodology = "We use criterion to benchmark. Submissions may be manually reviewed."
 
 [aoc]
 inputs_dir = "./inputs/"
