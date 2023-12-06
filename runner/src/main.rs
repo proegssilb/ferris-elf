@@ -1,4 +1,4 @@
-use ascii::{AsAsciiStr, AsciiStr, IntoAsciiString};
+use ascii::{AsAsciiStr, AsciiStr};
 mod code;
 trait IntoInput<T: Copy> {
     fn into_input(self) -> T;
@@ -26,10 +26,10 @@ fn main() {
     //TODO: test that the answer is correct
     let input = std::fs::read("inputs/input1.txt").unwrap();
     let input_ascii: &AsciiStr = input.as_ascii_str().unwrap();
-    let ans1 = code::Soln::run(input_ascii.as_ref());
-    let ans2 = code::Soln::run_ascii(input_ascii.as_ref());
-    let ans3 = code::Soln::run_bytes(input_ascii.as_bytes());
+    let ans1 = code::run(input_ascii.as_ref()).to_string();
+    let ans2 = code::run_ascii(input_ascii.as_ref()).to_string();
+    let ans3 = code::run_bytes(input_ascii.as_bytes()).to_string();
+    assert!(ans1 == ans2 && ans2 == ans3);
 
-    // let answer = format!("{}", code::Soln::run(&input));
     println!("Answers = {ans1} = {ans2} = {ans3}");
 }

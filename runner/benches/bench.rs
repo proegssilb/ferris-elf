@@ -8,11 +8,7 @@ pub fn all(c: &mut Criterion) {
     let input: &str = include_str!("../inputs/input1.txt");
     let mut group = c.benchmark_group("aoc_sub");
 
-    group.sample_size(10);
-
-    group.bench_function("run", |b| {
-        b.iter(|| code::Soln::run(black_box(input.as_ref())))
-    });
+    group.bench_function("run", |b| b.iter(|| code::run(black_box(input.as_ref()))));
     group.finish();
 }
 
