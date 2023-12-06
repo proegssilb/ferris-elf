@@ -181,15 +181,17 @@ pub fn part_one(parsed: &Valves) -> i64 {
     double_valverun((AA, 0), (AA, 0), parsed, 26, &mut HashMap::new(), 0, 0)
 }
 
-//These are some of the possible signatures user submitted code could have.
-//In practice there will be a single `run` function
 pub fn run(input: &str) -> impl Display {
     part_one(&parse(input))
 }
+//These are some of the other possible signatures that the user submitted `run`
+//function could have. In practice there will be a single `run` function
+#[allow(dead_code)]
 pub fn run_ascii(input: &AsciiStr) -> impl Display {
     let input_str = input.as_str();
     run(input_str)
 }
+#[allow(dead_code)]
 pub fn run_bytes(input: &[u8]) -> impl Display {
     let input_str = input.as_ascii_str().unwrap();
     run_ascii(input_str)

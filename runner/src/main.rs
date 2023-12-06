@@ -26,10 +26,6 @@ fn main() {
     //TODO: test that the answer is correct
     let input = std::fs::read("inputs/input1.txt").unwrap();
     let input_ascii: &AsciiStr = input.as_ascii_str().unwrap();
-    let ans1 = code::run(input_ascii.as_ref()).to_string();
-    let ans2 = code::run_ascii(input_ascii.as_ref()).to_string();
-    let ans3 = code::run_bytes(input_ascii.as_bytes()).to_string();
-    assert!(ans1 == ans2 && ans2 == ans3);
-
-    println!("Answers = {ans1} = {ans2} = {ans3}");
+    let answer = code::run(input_ascii.as_ref()).to_string();
+    println!("{}", answer);
 }
