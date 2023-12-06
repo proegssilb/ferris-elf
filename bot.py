@@ -1,16 +1,18 @@
-import docker
 import discord
 import asyncio
 import sqlite3
-import io
-import functools
+
+
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timedelta, timezone
 
+import lib
+from dataclasses import dataclass
 from config import settings
+import constants
 
-doc = docker.from_env()
+
 db = sqlite3.connect(settings.db.filename)
 
 cur = db.cursor()
@@ -20,62 +22,10 @@ cur.execute("""CREATE TABLE IF NOT EXISTS solutions
     (key TEXT, day INTEGER, part INTEGER, answer INTEGER, answer2)""")
 db.commit()
 
-def today():
-    utc = datetime.now(timezone.utc)
-    offset = timedelta(hours=-5)
-    return min((utc + offset).day, 25)
 
-async def build_image(msg, solution):
-    print(f"Building for {msg.author.name}")
-    status = await msg.reply("Building...")
-    with open("runner/src/code.rs", "wb+") as f:
-        f.write(solution)
-
-    loop = asyncio.get_event_loop()
-
-    try:
-        await loop.run_in_executor(None, functools.partial(doc.images.build, path="runner", tag=f"ferris-elf-{msg.author.id}"))
-        return True
-    except docker.errors.BuildError as err:
-        print(f"Build error: {err}")
-        e = ""
-        for chunk in err.build_log:
-            e += chunk.get("stream") or ""
-        await msg.reply(f"Error building benchmark: {err}", file=discord.File(io.BytesIO(e.encode("utf-8")), "build_log.txt"))
-        return False
-    finally:
-        await status.delete()
-
-async def run_image(msg, input):
-    print(f"Running for {msg.author.name}")
-    # input = ','.join([str(int(x)) for x in input])
-    status = await msg.reply("Running benchmark...")
-    loop = asyncio.get_event_loop()
-    try:
-        out = await loop.run_in_executor(None, functools.partial(doc.containers.run, f"ferris-elf-{msg.author.id}", f"timeout 60 ./target/release/ferris-elf", environment=dict(INPUT=input), remove=True, stdout=True, mem_limit="24g", network_mode="none"))
-        out = out.decode("utf-8")
-        print(out)
-        return out
-    except docker.errors.ContainerError as err:
-        print(f"Run error: {err}")
-        await msg.reply(f"Error running benchmark: {err}", file=discord.File(io.BytesIO(err.stderr), "stderr.txt"))
-    finally:
-        await status.delete()
-
-def avg(l):
-    return sum(l) / len(l)
-
-def ns(v):
-    if v > 1e9:
-        return f"{v / 1e9:.2f}s"
-    if v > 1e6:
-        return f"{v / 1e6:.2f}ms"
-    if v > 1e3:
-        return f"{v / 1e3:.2f}µs"
-    return f"{v:.2f}ns"
-
+   
 async def benchmark(msg, code, day, part):
-    build = await build_image(msg, code)
+    build = await lib.build_image(msg, code)
     if not build:
         return
 
@@ -99,7 +49,7 @@ async def benchmark(msg, code, day, part):
             input = f.read()
 
         status = await msg.reply(f"Benchmarking input {i+1}")
-        out = await run_image(msg, input)
+        out = await lib.run_image(msg, input)
         if not out:
             return
         await status.delete()
@@ -140,124 +90,107 @@ async def benchmark(msg, code, day, part):
     db.commit()
     print("Inserted results into DB")
 
+def today():
+    utc = datetime.now(timezone.utc)
+    offset = timedelta(hours=-5)
+    return min((utc + offset).day, 25)
+
+@dataclass
+class SubmitMessage:
+    msg: object #TODO
+    code: str
+    day: int
+    part: int
+
+    async def parse(msg):
+        code = await msg.attachments[0].read()
+        parts = [p for p in msg.content.split(" ") if p]
+        day = int((parts[0:1] or (today(), ))[0])
+        part = int((parts[1:2] or (1, ))[0])
+        return SubmitMessage(msg,code,day,part)
+
+@dataclass
+class GetBestTimesMessage:
+    msg: object
+    day: int
+    part: int
+
+    def parse(msg):
+        parts = [p for p in msg.content.split(" ") if p]
+        day = int((parts[1:2] or (today(), ))[0])
+        part = int((parts[2:3] or (1, ))[0])
+        return GetBestTimesMessage(msg,day,part)
+
+    def query():
+        query = f"""SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
+           GROUP BY user ORDER BY time"""
+        return query
+
+class HelpMessage:
+    msg: object
+
 class MyBot(discord.Client):
     queue = asyncio.Queue()
 
     async def on_ready(self):
         print("Logged in as", self.user)
-
         while True:
             try:
                 msg = await self.queue.get()
                 print(f"Processing request for {msg.author.name}")
-                code = await msg.attachments[0].read()
-                parts = [p for p in msg.content.split(" ") if p]
-                day = int((parts[0:1] or (today(), ))[0])
-                part = int((parts[1:2] or (1, ))[0])
-
-                await benchmark(msg, code, day, part)
-
+                submit_msg = SubmitMessage.parse(msg)
+                await benchmark(submit_msg)
                 self.queue.task_done()
             except Exception as err:
                 print("Queue loop exception!", err)
+
+    async def handle_best_times_message(self, msg):
+        get_best_msg = GetBestTimesMessage.parse(msg)
+        part1 = ""
+        for (user, time) in db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
+            if user is None or time is None:
+                continue
+            user = int(user)
+            print(user, time)
+            user = self.get_user(user) or await self.fetch_user(user)
+            if user:
+                part1 += f"\t{user.name}: **{ns(time)}**\n"
+        part2 = ""
+        for (user, time) in db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
+            if user is None or time is None:
+                continue
+            user = int(user)
+            print(user, time)
+            user = self.get_user(user) or await self.fetch_user(user)
+            if user:
+                part2 += f"\t{user.name}: **{ns(time)}**\n"
+        embed = discord.Embed(title=f"Top 10 fastest toboggans for day {day}", color=0xE84611)
+        if part1:
+            embed.add_field(name="Part 1", value=part1, inline=True)
+        if part2:
+            embed.add_field(name="Part 2", value=part2, inline=True)
+        await msg.reply(embed=embed)
+        return
 
     async def on_message(self, msg):
         if msg.author.bot:
             return
         
         print("Message received from", msg.author.name)
-
         if msg.content.startswith("best") or msg.content.startswith("aoc"):
-            parts = msg.content.split(" ")
-            day = int((parts[1:2] or (today(), ))[0])
-            print(f"Best for d {day}")
-
-            part1 = ""
-            for (user, time) in db.cursor().execute("""SELECT user, MIN(time) FROM runs
-WHERE day = ? AND part = 1
-GROUP BY user
-order by time""", (day, )):
-                if user is None or time is None:
-                    continue
-                user = int(user)
-                print(user, time)
-                user = self.get_user(user) or await self.fetch_user(user)
-                if user:
-                    part1 += f"\t{user.name}: **{ns(time)}**\n"
-            part2 = ""
-            for (user, time) in db.cursor().execute("""SELECT user, MIN(time) FROM runs
-WHERE day = ? AND part = 2
-GROUP BY user
-order by time""", (day, )):
-                if user is None or time is None:
-                    continue
-                user = int(user)
-                print(user, time)
-                user = self.get_user(user) or await self.fetch_user(user)
-                if user:
-                    part2 += f"\t{user.name}: **{ns(time)}**\n"
-
-            embed = discord.Embed(title=f"Top 10 fastest toboggans for day {day}", color=0xE84611)
-            if part1:
-                embed.add_field(name="Part 1", value=part1, inline=True)
-            if part2:
-                embed.add_field(name="Part 2", value=part2, inline=True)
-            await msg.reply(embed=embed)
+            await self.handle_best_times_message(msg)
             return
 
+        print("Msg content: " + msg.content)
         if not isinstance(msg.channel, discord.DMChannel):
             return
         
         if msg.content == "help":
-            await msg.reply(embed=discord.Embed(title="Ferris Elf help page", color=0xE84611, description="""
-**help** - Send this message
-**info** - Some useful information about benchmarking
-**best _[day]_** - Best times so far
-**_[day]_ _[part]_ <attachment>** - Benchmark attached code
-
-If [_day_] and/or [_part_] is ommited, they are assumed to be today and part 1
-
-Message <@{}> for any questions"""))
+            await msg.reply(embed=constants.HELP_REPLY)
             return
 
         if msg.content == "info":
-            await msg.reply(embed=discord.Embed(title="Benchmark information", color=0xE84611, description="""
-When sending code for a benchmark, you should make sure it looks like.
-```rs
-pub fn run(input: &str) -> i64 {
-    0
-}
-```
-
-Input can be either a &str or a &[u8], which ever you prefer. The return should \
-be the solution to the day and part. 
-
-Rust version is latest Docker nightly
-**Available dependencies**
-```toml
-bytemuck = "1"
-itertools = "0.10"
-rayon = "1"
-regex = "1"
-parse-display = "0.6"
-memchr = "2"
-core_simd = { git = "https://github.com/rust-lang/portable-simd" }
-arrayvec = "0.7"
-smallvec = "1"
-rustc-hash = "1"
-bitvec = "1"
-dashmap = "5"
-atoi_radix10 = { git = "https://github.com/gilescope/atoi_radix10" }
-btoi = "0.4"
-```
-Check back often as the available dependencies are bound to change over the course of AOC.
-If you want a dependency added, ping <@{}> asking them to add it.
-
-**Hardware**
-{}
-
-
-Be kind and do not abuse :)"""))
+            await msg.reply(embed=constants.INFO_REPLY)
             return
 
         if len(msg.attachments) == 0:
