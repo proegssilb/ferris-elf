@@ -1,5 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
+use ascii::{AsAsciiStr, AsciiStr};
+
+// structs and types cannot be part of struct impls
 #[derive(Clone)]
 pub struct Valve {
     rate: i64,
@@ -178,6 +181,18 @@ pub fn part_one(parsed: &Valves) -> i64 {
     double_valverun((AA, 0), (AA, 0), parsed, 26, &mut HashMap::new(), 0, 0)
 }
 
-pub fn run(input: &str) -> i64 {
+pub fn run(input: &str) -> impl Display {
     part_one(&parse(input))
+}
+//These are some of the other possible signatures that the user submitted `run`
+//function could have. In practice there will be a single `run` function
+#[allow(dead_code)]
+pub fn run_ascii(input: &AsciiStr) -> impl Display {
+    let input_str = input.as_str();
+    run(input_str)
+}
+#[allow(dead_code)]
+pub fn run_bytes(input: &[u8]) -> impl Display {
+    let input_str = input.as_ascii_str().unwrap();
+    run_ascii(input_str)
 }
