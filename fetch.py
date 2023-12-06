@@ -4,13 +4,13 @@ from datetime import datetime, timedelta, timezone
 
 from config import settings
 
-keys = settings.aoc.tokens
+keys = settings.aoc_auth.tokens
 aoc_base_dir = settings.aoc.inputs_dir
 
 def get(day):
     print(f"Fetching {day}")
     day_dir = os.path.join(aoc_base_dir, str(day))
-    for (label, k) in keys:
+    for (label, k) in keys.items():
         r = requests.get(f"https://adventofcode.com/2022/day/{day}/input", cookies=dict(session=k))
         r.raise_for_status()
         if not os.path.exists(day_dir):

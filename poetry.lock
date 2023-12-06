@@ -519,17 +519,6 @@ socks = ["PySocks (>=1.5.6,!=1.5.7)"]
 use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
-name = "sqlite4"
-version = "0.1.1"
-description = "SQLite4 provides a simplified wrapper for SQLite3, along with built-in multi-thread safety."
-optional = false
-python-versions = "*"
-files = [
-    {file = "SQLite4-0.1.1-py3-none-any.whl", hash = "sha256:41144eaee3f3916772e4177bd242d58c5f7bcf47ec7c4472ae9106c9c26d6d37"},
-    {file = "SQLite4-0.1.1.tar.gz", hash = "sha256:660f020b50d3bee97fa6250b65dc0ba0788fd62440cfe4cde85dc18dc9fe7430"},
-]
-
-[[package]]
 name = "urllib3"
 version = "2.1.0"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -667,4 +656,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "3731ad63e22fefbf9a9590ac99863fb36af4e285cf32b3715cec8e48379c8ea0"
+content-hash = "ee6f25740bc3b85c0bc191bc27c7d6442a55603c7fa71b49f907829008a37625"
