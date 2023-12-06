@@ -1,7 +1,7 @@
 import docker
 import discord
 import asyncio
-from sqlite4 import SQLite4
+import sqlite3
 import io
 import functools
 from os import listdir
@@ -11,8 +11,7 @@ from datetime import datetime, timedelta, timezone
 from config import settings
 
 doc = docker.from_env()
-db = SQLite4(settings.db.filename)
-db.connect()
+db = sqlite3.connect(settings.db.filename)
 
 cur = db.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS runs
@@ -165,6 +164,8 @@ class MyBot(discord.Client):
     async def on_message(self, msg):
         if msg.author.bot:
             return
+        
+        print("Message received from", msg.author.name)
 
         if msg.content.startswith("best") or msg.content.startswith("aoc"):
             parts = msg.content.split(" ")
@@ -269,5 +270,13 @@ Be kind and do not abuse :)"""))
         print("Queued for", msg.author, "(Queue length)", self.queue.qsize())
         self.queue.put_nowait(msg)
 
-bot = MyBot()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.messages = True
+intents.guild_messages = True
+intents.dm_messages = True
+intents.typing = False
+intents.presences = False
+
+bot = MyBot(intents=intents)
 bot.run(settings.discord.bot_token)
