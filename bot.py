@@ -1,29 +1,18 @@
 import asyncio
-from os import listdir
-from os.path import isfile, join
-import sqlite3
 import traceback
 
 import discord
 
 import lib
 from messages import SubmitMessage, GetBestTimesMessage
+from database import Database
 
 from config import settings
 import constants
 
-db = sqlite3.connect(settings.db.filename)
-
-cur = db.cursor()
-cur.execute("""CREATE TABLE IF NOT EXISTS runs
-    (user TEXT, code TEXT, day INTEGER, part INTEGER, time REAL, answer INTEGER, answer2)""")
-cur.execute("""CREATE TABLE IF NOT EXISTS solutions
-    (key TEXT, day INTEGER, part INTEGER, answer INTEGER, answer2)""")
-db.commit()
-
-
 class MyBot(discord.Client):
     queue = asyncio.Queue()
+    db = Database().get()
 
     async def on_ready(self):
         print("Logged in as", self.user)
@@ -41,7 +30,7 @@ class MyBot(discord.Client):
         try:
             get_best_msg = GetBestTimesMessage.parse(msg)
             part1 = ""
-            for (user, time) in db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
+            for (user, time) in MyBot.db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
                 if user is None or time is None:
                     continue
                 user = int(user)
@@ -50,7 +39,7 @@ class MyBot(discord.Client):
                 if user:
                     part1 += f"\t{user.name}: **{ns(time)}**\n"
             part2 = ""
-            for (user, time) in db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
+            for (user, time) in MyBot.db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
                 if user is None or time is None:
                     continue
                 user = int(user)
@@ -71,10 +60,10 @@ class MyBot(discord.Client):
         
     async def handle_submit(self, msg):
         try:
-            submit_msg = SubmitMessage.parse(msg)
             if len(msg.attachments) == 0:
                 await msg.reply("Please provide the code as a file attachment")
                 return
+            submit_msg = SubmitMessage.parse(msg)
             print(f"Queueing for {msg.author} , message = {submit_msg} , queue length = {self.queue.qsize()}")
             self.queue.put_nowait(submit_msg)
             await msg.reply(f"Your submission has been queued ({self.queue.qsize()} submissions in queue)")

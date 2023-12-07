@@ -1,6 +1,6 @@
 # These are defined here instead of in the bot to avoid a circular import 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Messages currently supported:
 # Submit <code as file>, <day num>, <part num>        : /submit <code> <day> <part>
@@ -53,5 +53,5 @@ class InfoMessage():
 
 def today():
     utc = datetime.now(timezone.utc)
-    offset = datetime.timedelta(hours=-5)
+    offset = timedelta(hours=-5)
     return min((utc + offset).day, 25)

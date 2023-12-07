@@ -1,9 +1,11 @@
 import asyncio
 import functools
+import traceback
+import os
 
 import docker
+from database import Database
 from messages import SubmitMessage
-from config import settings
 
 doc = docker.from_env()
 async def build_image(msg, solution):
@@ -49,26 +51,25 @@ async def benchmark(submit_msg: SubmitMessage):
     if not build:
         return
     
-    await msg.reply("This is where I would have benched your code!")
-    return
-
     day_path = f"{day}/"
     try:
-        onlyfiles = [f for f in listdir(day_path) if isfile(join(day_path, f))]
+        onlyfiles = [f for f in os.listdir(day_path) if os.isfile(os.path.join(day_path, f))]
     except:
         await msg.reply(f"Failed to read input files for day {day}, part {part}")
         return
+
+    db = Database().get()
 
     verified = False
     results = []
     for (i, file) in enumerate(onlyfiles):
         rows = db.cursor().execute("SELECT answer2 FROM solutions WHERE key = ? AND day = ? AND part = ?", (file, day, part))
 
-        with open(join(day_path, file), "r") as f:
+        with open(os.path.join(day_path, file), "r") as f:
             input = f.read()
 
         status = await msg.reply(f"Benchmarking input {i+1}")
-        out = await lib.run_image(msg, input)
+        out = await run_image(msg, input)
         if not out:
             return
         await status.delete()
