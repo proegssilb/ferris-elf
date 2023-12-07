@@ -1,9 +1,8 @@
 import requests
 import os, os.path, sys
-from datetime import datetime, timedelta, timezone
 
 from config import settings
-import constants
+from lib import today
 
 keys = settings.aoc_auth.tokens
 aoc_base_dir = settings.aoc.inputs_dir
@@ -18,11 +17,6 @@ def get(day):
             os.makedirs(day_dir)
         with open(os.path.join(day_dir, f"{label}.txt"), "wb+") as f:
             f.write(r.content)
-
-def today():
-    utc = datetime.now(timezone.utc)
-    offset = timedelta(hours=-5)
-    return min((utc + offset).day, constants.MAX_DAY)
 
 if len(sys.argv) > 1:
     get(int(sys.argv[1]))

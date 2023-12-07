@@ -58,7 +58,8 @@ class MyBot(discord.Client):
             submit_msg = SubmitMessage.parse(msg)
             print(f"Queueing for {msg.author} , message = {submit_msg} , queue length = {self.queue.qsize()}")
             self.queue.put_nowait(submit_msg)
-            await msg.reply(f"Your submission has been queued ({self.queue.qsize()} submissions in queue)")
+            await msg.reply(f"Your submission for day {submit_msg.day} part {submit_msg.part} has been queued." +
+                            f"There are {self.queue.qsize()} submissions in the queue)")
         except Exception as e:
             traceback.print_exception(e) #TODO: we probably dont want to log all incorrectly formatteed messages long term
             await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
