@@ -2,8 +2,8 @@ import discord
 HELP_REPLY = discord.Embed(title="Ferris Elf help page", color=0xE84611, description="""
 **help** - Send this message
 **info** - Some useful information about benchmarking
-**best _[day]_** - Best times so far
-**_[day]_ _[part]_ <attachment>** - Benchmark attached code
+**best _[day]_ _[part]_** - Best times so far for a day
+**submit _[day]_ _[part]_ <attachment>** - Benchmark attached code
 
 If [_day_] and/or [_part_] is ommited, they are assumed to be today and part 1
 
@@ -46,3 +46,5 @@ If you want a dependency added, ping <@{}> asking them to add it.
 
 
 Be kind and do not abuse :)""")
+                           
+MAX_DAY = 25

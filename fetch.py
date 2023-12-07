@@ -3,6 +3,7 @@ import os, os.path, sys
 from datetime import datetime, timedelta, timezone
 
 from config import settings
+import constants
 
 keys = settings.aoc_auth.tokens
 aoc_base_dir = settings.aoc.inputs_dir
@@ -21,7 +22,7 @@ def get(day):
 def today():
     utc = datetime.now(timezone.utc)
     offset = timedelta(hours=-5)
-    return min((utc + offset).day, 25)
+    return min((utc + offset).day, constants.MAX_DAY)
 
 if len(sys.argv) > 1:
     get(int(sys.argv[1]))

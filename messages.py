@@ -2,11 +2,13 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
+from constants import MAX_DAY
+
 # Messages currently supported:
-# Submit <code as file>, <day num>, <part num>        : /submit <code> <day> <part>
+# Submit                                              : /submit <code> <day> <part>
 # Help:                                               : /help
 # Info:                                               : /info
-# Get Best Times / Leaders for a day (optional partt) : /best <day> <optional: part> (alias: /leader)
+# Leaderboard                                         : /best <day> <part>
 
 @dataclass
 class SubmitMessage():
@@ -21,6 +23,8 @@ class SubmitMessage():
             parts = [p for p in msg.content.split(" ") if p]
             day = int(parts[1])
             part = int(parts[2])
+            if day < 1 or day > MAX_DAY or part < 1 or part > 2:
+                raise Exception(f"day/part out of bounds: {day} {part}")
             return SubmitMessage(msg,code,day,part)
         except Exception as e:
             raise e
@@ -34,16 +38,13 @@ class GetBestTimesMessage():
         try:
             parts = [p for p in msg.content.split(" ") if p]
             day = int(parts[1]) if len(parts) > 1 else today()
-            part = int(parts[2]) if len(parts) > 2 else 1
+            part = int(parts[2]) if len(parts) > 2 else 0 #0 represents both parts
+            if day < 1 or day > MAX_DAY or part < 0 or part > 2:
+                raise Exception(f"day/part out of bounds: {day} {part}")
             return GetBestTimesMessage(msg,day,part)
         except Exception as e:
             raise e
 
-    def query():
-        query = f"""SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
-           GROUP BY user ORDER BY time"""
-        return query
-    
 @dataclass
 class HelpMessage():
     pass
