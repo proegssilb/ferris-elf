@@ -93,3 +93,22 @@ async def benchmark(submit_msg: SubmitMessage):
 
     db.commit()
     print("Inserted results into DB")
+
+def get_best_times(day):
+    db = Database().get()
+    query = f"""SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
+           GROUP BY user ORDER BY time"""
+    
+    times1 = []
+    for (user_id, time) in db.cursor().execute(query, (day, 1)):
+        if user_id is None or time is None:
+            continue
+        user_id = int(user_id)
+        times1.apend((user_id,time))
+    times2 = []
+    for (user_id, time) in db.cursor().execute(query, (day, 2)):
+        if user_id is None or time is None:
+            continue
+        user_id = int(user_id)
+        times2.append((user_id,time))
+    return (times1, times2)

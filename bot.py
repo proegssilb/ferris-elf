@@ -24,38 +24,30 @@ class MyBot(discord.Client):
                 self.queue.task_done()
             except Exception as err:
                 traceback.print_exception(err)
-                print("Queue loop exception!", err)
 
     async def handle_best(self, msg):
+        async def format_times(times):
+            formatted = ""
+            for (user_id, time) in times:
+                user = self.get_user(user_id) or await self.fetch_user(user_id)
+                if user:
+                    formatted += f"\t{user.name}:  **{time}**\n"
+            return formatted
+
         try:
             get_best_msg = GetBestTimesMessage.parse(msg)
-            part1 = ""
-            for (user, time) in MyBot.db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
-                if user is None or time is None:
-                    continue
-                user = int(user)
-                print(user, time)
-                user = self.get_user(user) or await self.fetch_user(user)
-                if user:
-                    part1 += f"\t{user.name}: **{ns(time)}**\n"
-            part2 = ""
-            for (user, time) in MyBot.db.cursor().execute(GetBestTimesMessage.query(), (get_best_msg.day, get_best_msg.part)):
-                if user is None or time is None:
-                    continue
-                user = int(user)
-                print(user, time)
-                user = self.get_user(user) or await self.fetch_user(user)
-                if user:
-                    part2 += f"\t{user.name}: **{ns(time)}**\n"
+            (times1,times2) = lib.get_best_times(get_best_msg.day)
+            times1_str = await format_times(times1)
+            times2_str = await format_times(times2)
             embed = discord.Embed(title=f"Top 10 fastest toboggans for day {get_best_msg.day}", color=0xE84611)
-            if part1:
-                embed.add_field(name="Part 1", value=part1, inline=True)
-            if part2:
-                embed.add_field(name="Part 2", value=part2, inline=True)
+            if times1_str and (get_best_msg.part == 0 or get_best_msg.part == 1):
+                embed.add_field(name="Part 1", value=times1_str, inline=True)
+            if times2_str and (get_best_msg.part == 0 or get_best_msg.part == 2):
+                embed.add_field(name="Part 2", value=times2_str, inline=True)
             await msg.reply(embed=embed)
         except Exception as e:
-            traceback.print_exception(e)
-            await msg.reply(f"Error handling your message: {e}") #TODO returning the actual exception is probably not safe, this is for testing
+            traceback.print_exception(e) #TODO: we probably dont want to log all incorrectly formatteed messages long term
+            await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
         return
         
     async def handle_submit(self, msg):
@@ -68,29 +60,31 @@ class MyBot(discord.Client):
             self.queue.put_nowait(submit_msg)
             await msg.reply(f"Your submission has been queued ({self.queue.qsize()} submissions in queue)")
         except Exception as e:
-            traceback.print_exception(e)
-            await msg.reply(f"Error handling your message: {e}") #TODO returning the actual exception is probably not safe, this is for testing
+            traceback.print_exception(e) #TODO: we probably dont want to log all incorrectly formatteed messages long term
+            await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
         return
 
+    async def handle_help(self, msg):
+        await msg.reply(embed=constants.HELP_REPLY)
+        return
+
+    async def handle_info(self, msg):
+        await msg.reply(embed=constants.INFO_REPLY)
+        return
+     
     async def on_message(self, msg):
         if msg.author.bot:
             return
-        
         print("Message received from", msg.author.name)
         if msg.content.startswith("best") or msg.content.startswith("aoc"):
             await self.handle_best(msg)
-            return
         elif msg.content.startswith("submit"):
             await self.handle_submit(msg)
-        elif msg.content == "help":
-            await msg.reply(embed=constants.HELP_REPLY)
-            return
         elif msg.content == "info":
-            await msg.reply(embed=constants.INFO_REPLY)
-            return
+            await self.handle_info(msg)
         else:
-            await msg.reply(embed=constants.HELP_REPLY)
-            return
+            await self.handle_help(msg)
+        return
 
 intents = discord.Intents.default()
 intents.message_content = True
