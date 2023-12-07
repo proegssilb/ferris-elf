@@ -2,6 +2,7 @@ import asyncio
 import functools
 
 import docker
+from messages import SubmitMessage
 from config import settings
 
 doc = docker.from_env()
@@ -41,3 +42,51 @@ async def run_image(msg, input):
         await msg.reply(f"Error running benchmark: {err}", file=discord.File(io.BytesIO(err.stderr), "stderr.txt"))
     finally:
         await status.delete()
+
+async def benchmark(submit_msg: SubmitMessage):
+    (msg,day,code,part) = submit_msg.msg,submit_msg.day,submit_msg.code,submit_msg.part
+    build = await build_image(msg, code)
+    if not build:
+        return
+    
+    await msg.reply("This is where I would have benched your code!")
+    return
+
+    day_path = f"{day}/"
+    try:
+        onlyfiles = [f for f in listdir(day_path) if isfile(join(day_path, f))]
+    except:
+        await msg.reply(f"Failed to read input files for day {day}, part {part}")
+        return
+
+    verified = False
+    results = []
+    for (i, file) in enumerate(onlyfiles):
+        rows = db.cursor().execute("SELECT answer2 FROM solutions WHERE key = ? AND day = ? AND part = ?", (file, day, part))
+
+        with open(join(day_path, file), "r") as f:
+            input = f.read()
+
+        status = await msg.reply(f"Benchmarking input {i+1}")
+        out = await lib.run_image(msg, input)
+        if not out:
+            return
+        await status.delete()
+
+        result = {}
+        #TODO: get the answer and the bench results from the docker and verify them here
+
+        cur.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)", (str(msg.author.id), code, day, part, result["median"], result["answer"], result["answer"]))
+        results.append(result)
+    
+
+    median = avg([r["median"] for r in results])
+    average = avg([r["average"] for r in results])
+
+    if verified:
+        await msg.reply(embed=discord.Embed(title="Benchmark complete", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
+    else:
+        await msg.reply(embed=discord.Embed(title="Benchmark complete (Unverified)", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
+
+    db.commit()
+    print("Inserted results into DB")
