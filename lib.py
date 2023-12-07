@@ -20,11 +20,12 @@ async def build_image(msg, solution):
         await loop.run_in_executor(None, functools.partial(doc.images.build, path="runner", tag=f"ferris-elf-{msg.author.id}"))
         return True
     except docker.errors.BuildError as err:
-        print(f"Build error: {err}")
+        print("Build Error:")
+        traceback.print_exception(err)
         e = ""
         for chunk in err.build_log:
             e += chunk.get("stream") or ""
-        await msg.reply(f"Error building benchmark: {err}", file=discord.File(io.BytesIO(e.encode("utf-8")), "build_log.txt"))
+        await msg.reply(f"Error building benchmark: {err}")
         return False
     finally:
         await status.delete()
@@ -40,8 +41,9 @@ async def run_image(msg, input):
         print(out)
         return out
     except docker.errors.ContainerError as err:
-        print(f"Run error: {err}")
-        await msg.reply(f"Error running benchmark: {err}", file=discord.File(io.BytesIO(err.stderr), "stderr.txt"))
+        print("Run Error:")
+        traceback.print_exception(err)
+        await msg.reply(f"Error running benchmark: {err}")
     finally:
         await status.delete()
 
