@@ -1,7 +1,9 @@
 import asyncio
+import sys
 import traceback
 
 import discord
+from dynaconf import ValidationError
 
 import lib
 from messages import SubmitMessage, GetBestTimesMessage
@@ -11,8 +13,10 @@ from config import settings
 import constants
 
 class MyBot(discord.Client):
-    queue = asyncio.Queue()
-    db = Database().get()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queue = asyncio.Queue()
+        self.db = Database().get()
 
     async def on_ready(self):
         print("Logged in as", self.user)
@@ -87,13 +91,19 @@ class MyBot(discord.Client):
             await self.handle_help(msg)
         return
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.messages = True
-intents.guild_messages = True
-intents.dm_messages = True
-intents.typing = False
-intents.presences = False
-
-bot = MyBot(intents=intents)
-bot.run(settings.discord.bot_token)
+if __name__ == '__main__':
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.messages = True
+    intents.guild_messages = True
+    intents.dm_messages = True
+    intents.typing = False
+    intents.presences = False
+    
+    try:
+        settings.validators.validate()
+    except ValidationError as ve:
+        print(f"Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.\n{ve}")
+        sys.exit(1)
+    bot = MyBot(intents=intents)
+    bot.run(settings.discord.bot_token)
