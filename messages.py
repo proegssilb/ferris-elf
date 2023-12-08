@@ -17,16 +17,14 @@ class SubmitMessage():
     part: int
 
     def parse(msg):
-        try:
-            code = msg.attachments[0].read()
-            parts = [p for p in msg.content.split(" ") if p]
-            day = int(parts[1]) if len(parts) > 1 else today()
-            part = int(parts[2]) if len(parts) > 2 else 1
-            if day < 1 or day > constants.MAX_DAY or part < 1 or part > 2:
-                raise Exception(f"day/part out of bounds: {day} {part}")
-            return SubmitMessage(msg,code,day,part)
-        except Exception as e:
-            raise e
+        code = msg.attachments[0].read()
+        parts = [p for p in msg.content.split(" ") if p]
+        day = int(parts[1]) if len(parts) > 1 else today()
+        part = int(parts[2]) if len(parts) > 2 else 1
+        if day < 1 or day > constants.MAX_DAY or part < 1 or part > 2:
+            raise Exception(f"day/part out of bounds: {day} {part}")
+        return SubmitMessage(msg,code,day,part)
+
 @dataclass
 class GetBestTimesMessage():
     msg: object
@@ -34,15 +32,13 @@ class GetBestTimesMessage():
     part: int
 
     def parse(msg):
-        try:
-            parts = [p for p in msg.content.split(" ") if p]
-            day = int(parts[1]) if len(parts) > 1 else today()
-            part = int(parts[2]) if len(parts) > 2 else 0 #0 represents both parts
-            if day < 1 or day > constants.MAX_DAY or part < 0 or part > 2:
-                raise Exception(f"day/part out of bounds: {day} {part}")
-            return GetBestTimesMessage(msg,day,part)
-        except Exception as e:
-            raise e
+        parts = [p for p in msg.content.split(" ") if p]
+        day = int(parts[1]) if len(parts) > 1 else today()
+        part = int(parts[2]) if len(parts) > 2 else 0 #0 represents both parts
+        if day < 1 or day > constants.MAX_DAY or part < 0 or part > 2:
+            raise Exception(f"day/part out of bounds: {day} {part}")
+        return GetBestTimesMessage(msg,day,part)
+
 
 @dataclass
 class HelpMessage():
