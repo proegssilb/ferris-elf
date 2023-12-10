@@ -10,13 +10,12 @@ ENV TERM="dumb"
 # These should be cached
 WORKDIR /usr/src/ferris-elf
 COPY Cargo.toml Cargo.toml
+COPY benches/bench.rs benches/bench.rs
 COPY src/main.rs src/main.rs
-COPY src/placeholder.rs src/lib.rs
-RUN cargo build --release
-RUN cargo clean -p ferris-elf
+COPY src/lib.rs src/lib.rs
 
 # For each build
-COPY src/code.rs src/lib.rs
+COPY src/code.rs src/code.rs
 RUN touch src/lib.rs
 RUN cargo build --release
 
