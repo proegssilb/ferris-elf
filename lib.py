@@ -81,7 +81,8 @@ async def benchmark(submit_msg: SubmitMessage):
 
         cur.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)", (str(msg.author.id), code, day, part, result["median"], result["answer"], result["answer"]))
         results.append(result)
-    
+    db.commit()
+    print("Inserted results into DB")
 
     median = avg([r["median"] for r in results])
     average = avg([r["average"] for r in results])
@@ -90,9 +91,6 @@ async def benchmark(submit_msg: SubmitMessage):
         await msg.reply(embed=discord.Embed(title="Benchmark complete", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
     else:
         await msg.reply(embed=discord.Embed(title="Benchmark complete (Unverified)", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
-
-    db.commit()
-    print("Inserted results into DB")
 
 def get_best_times(day):
     db = Database().get()
