@@ -16,6 +16,7 @@ class SubmitMessage():
     day: int
     part: int
 
+    @staticmethod
     def parse(msg):
         code = msg.attachments[0].read()
         parts = [p for p in msg.content.split(" ") if p]
@@ -31,6 +32,7 @@ class GetBestTimesMessage():
     day: int
     part: int
 
+    @staticmethod
     def parse(msg):
         parts = [p for p in msg.content.split(" ") if p]
         day = int(parts[1]) if len(parts) > 1 else today()
