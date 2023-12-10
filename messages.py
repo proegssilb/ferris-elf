@@ -9,6 +9,7 @@ import constants
 # Info:                                               : /info
 # Leaderboard                                         : /best <day> <part>
 
+
 @dataclass
 class SubmitMessage:
     msg: object
@@ -24,7 +25,8 @@ class SubmitMessage:
         part = int(parts[2]) if len(parts) > 2 else 1
         if day < 1 or day > constants.MAX_DAY or part < 1 or part > 2:
             raise Exception(f"day/part out of bounds: {day} {part}")
-        return SubmitMessage(msg,code,day,part)
+        return SubmitMessage(msg, code, day, part)
+
 
 @dataclass
 class GetBestTimesMessage:
@@ -36,18 +38,21 @@ class GetBestTimesMessage:
     def parse(msg):
         parts = [p for p in msg.content.split(" ") if p]
         day = int(parts[1]) if len(parts) > 1 else today()
-        part = int(parts[2]) if len(parts) > 2 else 0 #0 represents both parts
+        part = int(parts[2]) if len(parts) > 2 else 0  # 0 represents both parts
         if day < 1 or day > constants.MAX_DAY or part < 0 or part > 2:
             raise Exception(f"day/part out of bounds: {day} {part}")
-        return GetBestTimesMessage(msg,day,part)
+        return GetBestTimesMessage(msg, day, part)
 
 
 @dataclass
 class HelpMessage:
     pass
+
+
 @dataclass
 class InfoMessage:
     pass
+
 
 def today():
     utc = datetime.now(timezone.utc)

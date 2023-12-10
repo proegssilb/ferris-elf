@@ -12,6 +12,7 @@ from database import Database
 from config import settings
 import constants
 
+
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,7 +33,7 @@ class MyBot(discord.Client):
     async def handle_best(self, msg):
         async def format_times(times):
             formatted = ""
-            for (user_id, time) in times:
+            for user_id, time in times:
                 user = self.get_user(user_id) or await self.fetch_user(user_id)
                 if user:
                     formatted += f"\t{user.name}:  **{time}**\n"
@@ -40,32 +41,42 @@ class MyBot(discord.Client):
 
         try:
             get_best_msg = GetBestTimesMessage.parse(msg)
-            (times1,times2) = lib.get_best_times(get_best_msg.day)
+            (times1, times2) = lib.get_best_times(get_best_msg.day)
             times1_str = await format_times(times1)
             times2_str = await format_times(times2)
-            embed = discord.Embed(title=f"Top 10 fastest toboggans for day {get_best_msg.day}", color=0xE84611)
+            embed = discord.Embed(
+                title=f"Top 10 fastest toboggans for day {get_best_msg.day}", color=0xE84611
+            )
             if times1_str and (get_best_msg.part == 0 or get_best_msg.part == 1):
                 embed.add_field(name="Part 1", value=times1_str, inline=True)
             if times2_str and (get_best_msg.part == 0 or get_best_msg.part == 2):
                 embed.add_field(name="Part 2", value=times2_str, inline=True)
             await msg.reply(embed=embed)
         except Exception as e:
-            traceback.print_exception(e) #TODO: we probably dont want to log all incorrectly formatteed messages long term
+            traceback.print_exception(
+                e
+            )  # TODO: we probably dont want to log all incorrectly formatteed messages long term
             await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
         return
-        
+
     async def handle_submit(self, msg):
         try:
             if len(msg.attachments) == 0:
                 await msg.reply("Please provide the code as a file attachment")
                 return
             submit_msg = SubmitMessage.parse(msg)
-            print(f"Queueing for {msg.author} , message = {submit_msg} , queue length = {self.queue.qsize()}")
+            print(
+                f"Queueing for {msg.author} , message = {submit_msg} , queue length = {self.queue.qsize()}"
+            )
             self.queue.put_nowait(submit_msg)
-            await msg.reply(f"Your submission for day {submit_msg.day} part {submit_msg.part} has been queued." +
-                            f"There are {self.queue.qsize()} submissions in the queue)")
+            await msg.reply(
+                f"Your submission for day {submit_msg.day} part {submit_msg.part} has been queued."
+                + f"There are {self.queue.qsize()} submissions in the queue)"
+            )
         except Exception as e:
-            traceback.print_exception(e) #TODO: we probably dont want to log all incorrectly formatteed messages long term
+            traceback.print_exception(
+                e
+            )  # TODO: we probably dont want to log all incorrectly formatteed messages long term
             await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
         return
 
@@ -76,7 +87,7 @@ class MyBot(discord.Client):
     async def handle_info(self, msg):
         await msg.reply(embed=constants.INFO_REPLY)
         return
-     
+
     async def on_message(self, msg):
         if msg.author.bot:
             return
@@ -91,7 +102,8 @@ class MyBot(discord.Client):
             await self.handle_help(msg)
         return
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     intents = discord.Intents.default()
     intents.message_content = True
     intents.messages = True
@@ -99,11 +111,13 @@ if __name__ == '__main__':
     intents.dm_messages = True
     intents.typing = False
     intents.presences = False
-    
+
     try:
         settings.validators.validate()
     except ValidationError as ve:
-        print(f"Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.\n{ve}")
+        print(
+            f"Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.\n{ve}"
+        )
         sys.exit(1)
     bot = MyBot(intents=intents)
     bot.run(settings.discord.bot_token)
