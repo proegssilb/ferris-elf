@@ -56,7 +56,7 @@ async def benchmark(submit_msg: SubmitMessage):
     day_path = f"{day}/"
     try:
         onlyfiles = [f for f in os.listdir(day_path) if os.isfile(os.path.join(day_path, f))]
-    except:
+    except Exception:
         await msg.reply(f"Failed to read input files for day {day}, part {part}")
         return
 
