@@ -4,9 +4,10 @@ After=docker.service
 Requires=docker.service
 
 [Service]
-WorkingDirectory = /srv/ferris-elf/ferris-elf/
-ExecStart = poetry run python3 bot.py
-Restart = always
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/srv/ferris-elf/.local/bin"
+WorkingDirectory=/srv/ferris-elf/ferris-elf/
+ExecStart=/srv/ferris-elf/.local/bin/poetry run python3 bot.py
+Restart=always
 
 [Install]
 Alias="ferris-elf.service"
