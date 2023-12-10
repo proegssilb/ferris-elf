@@ -10,7 +10,7 @@ import constants
 # Leaderboard                                         : /best <day> <part>
 
 @dataclass
-class SubmitMessage():
+class SubmitMessage:
     msg: object
     code: str
     day: int
@@ -27,7 +27,7 @@ class SubmitMessage():
         return SubmitMessage(msg,code,day,part)
 
 @dataclass
-class GetBestTimesMessage():
+class GetBestTimesMessage:
     msg: object
     day: int
     part: int
@@ -43,10 +43,10 @@ class GetBestTimesMessage():
 
 
 @dataclass
-class HelpMessage():
+class HelpMessage:
     pass
 @dataclass
-class InfoMessage():
+class InfoMessage:
     pass
 
 def today():

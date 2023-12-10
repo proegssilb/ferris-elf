@@ -4,7 +4,7 @@ import config
 
 # connection is a static variable that is shared across all instances of DB
 # so we reuse the same connection across all users of this class
-class Database():
+class Database:
     connection = None
     def __init__(self):
         if Database.connection is None:
