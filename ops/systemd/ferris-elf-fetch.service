@@ -1,0 +1,8 @@
+[Unit]
+Description="Ferris Elf input fetcher"
+Requires=network-online.target
+
+[Service]
+Type=one-shot
+WorkingDirectory = /srv/ferris-elf/ferris-elf/
+ExecStart = poetry run python3 fetch.py

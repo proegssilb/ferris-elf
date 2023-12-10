@@ -1,0 +1,14 @@
+[Unit]
+Description="Ferris Elf discord bot"
+After=docker.service
+Requires=docker.service
+
+[Service]
+WorkingDirectory = /srv/ferris-elf/ferris-elf/
+ExecStart = poetry run python3 bot.py
+Restart = always
+
+[Install]
+Alias="ferris-elf.service"
+Also="ferris-elf-fetch.timer ferris-elf-update.timer"
+WantedBy=default.target

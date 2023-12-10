@@ -1,0 +1,8 @@
+[Unit]
+Description="Ferris Elf auto-update"
+Requires=network-online.target
+
+[Service]
+Type=one-shot
+WorkingDirectory = /srv/ferris-elf/ferris-elf/
+ExecStart = /srv/ferris-elf/ferris-elf/ops/update.sh
