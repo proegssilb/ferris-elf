@@ -1,14 +1,12 @@
 #!/usr/bin/bash
 
 CURR_REV=$(git rev-parse --verify HEAD)
+REMOTE_REV=$(git rev-parse --verify HEAD@{u})    # https://stackoverflow.com/a/46516201/1819694
 
-# TODO: Once config is moved out of the home dir, reset all contents of the repo before pulling.
-
-git pull
-
-NEW_REV=$(git rev-parse --verify HEAD)
-
-if test "$CURR_REV" != "$NEW_REV"; then
+if test "$CURR_REV" != "$REMOTE_REV"; then
+    systemctl --user stop ferris-elf-bot.service
+    # TODO: Discard all changes to the repo
+    git pull
     systemctl --user daemon-reload
-    systemctl --user restart ferris-elf-bot.service
+    systemctl --user start ferris-elf-bot.service
 fi
