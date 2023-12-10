@@ -1,5 +1,9 @@
 import discord
-HELP_REPLY = discord.Embed(title="Ferris Elf help page", color=0xE84611, description="""
+
+HELP_REPLY = discord.Embed(
+    title="Ferris Elf help page",
+    color=0xE84611,
+    description="""
 **help** - Send this message
 **info** - Some useful information about benchmarking
 **best _[day]_ _[part]_** - Best times so far for a day
@@ -7,9 +11,13 @@ HELP_REPLY = discord.Embed(title="Ferris Elf help page", color=0xE84611, descrip
 
 If [_day_] and/or [_part_] is ommited, they are assumed to be today and part 1
 
-Message <@{}> for any questions""")
+Message <@{}> for any questions""",
+)
 
-INFO_REPLY = discord.Embed(title="Benchmark information", color=0xE84611, description="""
+INFO_REPLY = discord.Embed(
+    title="Benchmark information",
+    color=0xE84611,
+    description="""
 When sending code for a benchmark, you should make sure it looks like.
 ```rs
 pub fn run(input: &str) -> i64 {
@@ -45,6 +53,7 @@ If you want a dependency added, ping <@{}> asking them to add it.
 {}
 
 
-Be kind and do not abuse :)""")
-                           
+Be kind and do not abuse :)""",
+)
+
 MAX_DAY = 25

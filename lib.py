@@ -8,6 +8,8 @@ from database import Database
 from messages import SubmitMessage
 
 doc = docker.from_env()
+
+
 async def build_image(msg, solution):
     print(f"Building for {msg.author.name}")
     status = await msg.reply("Building...")
@@ -17,7 +19,10 @@ async def build_image(msg, solution):
     loop = asyncio.get_event_loop()
 
     try:
-        await loop.run_in_executor(None, functools.partial(doc.images.build, path="runner", tag=f"ferris-elf-{msg.author.id}"))
+        await loop.run_in_executor(
+            None,
+            functools.partial(doc.images.build, path="runner", tag=f"ferris-elf-{msg.author.id}"),
+        )
         return True
     except docker.errors.BuildError as err:
         print("Build Error:")
@@ -30,13 +35,26 @@ async def build_image(msg, solution):
     finally:
         await status.delete()
 
+
 async def run_image(msg, input):
     print(f"Running for {msg.author.name}")
     # input = ','.join([str(int(x)) for x in input])
     status = await msg.reply("Running benchmark...")
     loop = asyncio.get_event_loop()
     try:
-        out = await loop.run_in_executor(None, functools.partial(doc.containers.run, f"ferris-elf-{msg.author.id}", f"timeout 60 ./target/release/ferris-elf", environment=dict(INPUT=input), remove=True, stdout=True, mem_limit="24g", network_mode="none"))
+        out = await loop.run_in_executor(
+            None,
+            functools.partial(
+                doc.containers.run,
+                f"ferris-elf-{msg.author.id}",
+                f"timeout 60 ./target/release/ferris-elf",
+                environment=dict(INPUT=input),
+                remove=True,
+                stdout=True,
+                mem_limit="24g",
+                network_mode="none",
+            ),
+        )
         out = out.decode("utf-8")
         print(out)
         return out
@@ -47,12 +65,13 @@ async def run_image(msg, input):
     finally:
         await status.delete()
 
+
 async def benchmark(submit_msg: SubmitMessage):
-    (msg,day,code,part) = submit_msg.msg,submit_msg.day,submit_msg.code,submit_msg.part
+    (msg, day, code, part) = submit_msg.msg, submit_msg.day, submit_msg.code, submit_msg.part
     build = await build_image(msg, code)
     if not build:
         return
-    
+
     day_path = f"{day}/"
     try:
         onlyfiles = [f for f in os.listdir(day_path) if os.isfile(os.path.join(day_path, f))]
@@ -64,8 +83,11 @@ async def benchmark(submit_msg: SubmitMessage):
 
     verified = False
     results = []
-    for (i, file) in enumerate(onlyfiles):
-        rows = db.cursor().execute("SELECT answer2 FROM solutions WHERE key = ? AND day = ? AND part = ?", (file, day, part))
+    for i, file in enumerate(onlyfiles):
+        rows = db.cursor().execute(
+            "SELECT answer2 FROM solutions WHERE key = ? AND day = ? AND part = ?",
+            (file, day, part),
+        )
 
         with open(os.path.join(day_path, file), "r") as f:
             input = f.read()
@@ -77,9 +99,20 @@ async def benchmark(submit_msg: SubmitMessage):
         await status.delete()
 
         result = {}
-        #TODO: get the answer and the bench results from the docker and verify them here
+        # TODO: get the answer and the bench results from the docker and verify them here
 
-        cur.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)", (str(msg.author.id), code, day, part, result["median"], result["answer"], result["answer"]))
+        cur.execute(
+            "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                str(msg.author.id),
+                code,
+                day,
+                part,
+                result["median"],
+                result["answer"],
+                result["answer"],
+            ),
+        )
         results.append(result)
     db.commit()
     print("Inserted results into DB")
@@ -88,25 +121,36 @@ async def benchmark(submit_msg: SubmitMessage):
     average = avg([r["average"] for r in results])
 
     if verified:
-        await msg.reply(embed=discord.Embed(title="Benchmark complete", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
+        await msg.reply(
+            embed=discord.Embed(
+                title="Benchmark complete",
+                description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+            )
+        )
     else:
-        await msg.reply(embed=discord.Embed(title="Benchmark complete (Unverified)", description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**"))
+        await msg.reply(
+            embed=discord.Embed(
+                title="Benchmark complete (Unverified)",
+                description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+            )
+        )
+
 
 def get_best_times(day):
     db = Database().get()
     query = f"""SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
            GROUP BY user ORDER BY time"""
-    
+
     times1 = []
-    for (user_id, time) in db.cursor().execute(query, (day, 1)):
+    for user_id, time in db.cursor().execute(query, (day, 1)):
         if user_id is None or time is None:
             continue
         user_id = int(user_id)
-        times1.apend((user_id,time))
+        times1.apend((user_id, time))
     times2 = []
-    for (user_id, time) in db.cursor().execute(query, (day, 2)):
+    for user_id, time in db.cursor().execute(query, (day, 2)):
         if user_id is None or time is None:
             continue
         user_id = int(user_id)
-        times2.append((user_id,time))
+        times2.append((user_id, time))
     return (times1, times2)
