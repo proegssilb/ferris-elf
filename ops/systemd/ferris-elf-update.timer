@@ -5,6 +5,7 @@ Requires=network-online.target
 [Timer]
 OnBootSec=5min
 OnUnitActiveSec=5min
+OnCalendar=*:5/5
 Persistent=true
 
 [Install]
