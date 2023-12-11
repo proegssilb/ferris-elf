@@ -3,7 +3,7 @@ Description="Ferris Elf input fetch timer"
 Requires=network-online.target
 
 [Timer]
-OnCalendar=* *-12-01..26 00:00:15 America/New_York
+OnCalendar=*-12-01..26 00:00:15 America/New_York
 Persistent=true
 
 [Install]
