@@ -29,8 +29,9 @@ def get(day):
         with open(os.path.join(day_dir, f"{label}.txt"), "wb+") as f:
             f.write(r.content)
 
-if __name__ == '__main__':
-    logging.basicConfig(encoding='utf-8', level=logging.INFO)
+
+if __name__ == "__main__":
+    logging.basicConfig(encoding="utf-8", level=logging.INFO)
     if len(sys.argv) > 1:
         get(int(sys.argv[1]))
     else:

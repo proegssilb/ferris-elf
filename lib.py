@@ -31,7 +31,7 @@ async def build_image(msg, solution):
         )
         return True
     except docker.errors.BuildError as err:
-        logger.exception("Build Error while building for %s" msg.author.name)
+        logger.exception("Build Error while building for %s", msg.author.name)
         e = ""
         for chunk in err.build_log:
             e += chunk.get("stream") or ""

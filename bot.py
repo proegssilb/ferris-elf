@@ -14,6 +14,7 @@ import constants
 
 logger = logging.getLogger(__name__)
 
+
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,7 +65,12 @@ class MyBot(discord.Client):
                 await msg.reply("Please provide the code as a file attachment")
                 return
             submit_msg = SubmitMessage.parse(msg)
-            logger.info("Queueing submission for %s, message = [%s], queue length = %s", msg.author, submit_msg, self.queue.qsize())
+            logger.info(
+                "Queueing submission for %s, message = [%s], queue length = %s",
+                msg.author,
+                submit_msg,
+                self.queue.qsize(),
+            )
             self.queue.put_nowait(submit_msg)
             await msg.reply(
                 f"Your submission for day {submit_msg.day} part {submit_msg.part} has been queued."
@@ -99,7 +105,7 @@ class MyBot(discord.Client):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(encoding='utf-8', level=logging.INFO)
+    logging.basicConfig(encoding="utf-8", level=logging.INFO)
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -112,7 +118,9 @@ if __name__ == "__main__":
     try:
         settings.validators.validate()
     except ValidationError as ve:
-        logger.exception("Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.")
+        logger.exception(
+            "Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info."
+        )
         sys.exit(1)
     bot = MyBot(intents=intents)
     bot.run(settings.discord.bot_token)
