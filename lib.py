@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import functools
 import traceback
 import os
+from zoneinfo import ZoneInfo
 
 import docker
 from database import Database
@@ -157,6 +158,5 @@ def get_best_times(day):
     return (times1, times2)
 
 def today():
-    utc = datetime.now(timezone.utc)
-    offset = timedelta(hours=-5)
-    return min((utc + offset).day, 25)
+    stamp = datetime.now(tz=ZoneInfo("America/New_York"))
+    return min(stamp.day, 25)
