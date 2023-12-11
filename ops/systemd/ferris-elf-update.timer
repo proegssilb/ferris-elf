@@ -1,6 +1,5 @@
 [Unit]
 Description="Ferris Elf update timer"
-Requires=network-online.target
 
 [Timer]
 OnCalendar=*:5/5
