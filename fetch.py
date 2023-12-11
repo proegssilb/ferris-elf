@@ -15,7 +15,9 @@ def get(day):
     day_dir = os.path.join(aoc_base_dir, str(day))
     year = datetime.now(tz=ZoneInfo("America/New_York")).year
     for label, k in keys.items():
-        r = requests.get(f"https://adventofcode.com/{year}/day/{day}/input", cookies=dict(session=k))
+        r = requests.get(
+            f"https://adventofcode.com/{year}/day/{day}/input", cookies=dict(session=k)
+        )
         r.raise_for_status()
         if not os.path.exists(day_dir):
             os.makedirs(day_dir)

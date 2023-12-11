@@ -157,6 +157,7 @@ def get_best_times(day):
         times2.append((user_id, time))
     return (times1, times2)
 
+
 def today():
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     return min(stamp.day, 25)
