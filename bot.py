@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 import traceback
 
@@ -8,10 +9,10 @@ from dynaconf import ValidationError
 import lib
 from messages import SubmitMessage, GetBestTimesMessage
 from database import Database
-
 from config import settings
 import constants
 
+logger = logging.getLogger(__name__)
 
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -24,11 +25,11 @@ class MyBot(discord.Client):
         while True:
             try:
                 submit_msg = await self.queue.get()
-                print(f"Going to process submission from queue: {submit_msg}")
+                logger.info("Going to process submission from queue: %s", submit_msg)
                 await lib.benchmark(submit_msg)
                 self.queue.task_done()
-            except Exception as err:
-                traceback.print_exception(err)
+            except Exception:
+                logger.exception("Error while processing submission.")
 
     async def handle_best(self, msg):
         async def format_times(times):
@@ -52,11 +53,9 @@ class MyBot(discord.Client):
             if times2_str and (get_best_msg.part == 0 or get_best_msg.part == 2):
                 embed.add_field(name="Part 2", value=times2_str, inline=True)
             await msg.reply(embed=embed)
-        except Exception as e:
-            traceback.print_exception(
-                e
-            )  # TODO: we probably dont want to log all incorrectly formatteed messages long term
-            await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
+        except Exception:
+            logger.exception("Errror while processing request for leaderboard.")
+            await msg.reply("Error handling your message", embed=constants.HELP_REPLY)
         return
 
     async def handle_submit(self, msg):
@@ -65,19 +64,15 @@ class MyBot(discord.Client):
                 await msg.reply("Please provide the code as a file attachment")
                 return
             submit_msg = SubmitMessage.parse(msg)
-            print(
-                f"Queueing for {msg.author} , message = {submit_msg} , queue length = {self.queue.qsize()}"
-            )
+            logger.info("Queueing submission for %s, message = [%s], queue length = %s", msg.author, submit_msg, self.queue.qsize())
             self.queue.put_nowait(submit_msg)
             await msg.reply(
                 f"Your submission for day {submit_msg.day} part {submit_msg.part} has been queued."
                 + f"There are {self.queue.qsize()} submissions in the queue)"
             )
-        except Exception as e:
-            traceback.print_exception(
-                e
-            )  # TODO: we probably dont want to log all incorrectly formatteed messages long term
-            await msg.reply(f"Error handling your message", embed=constants.HELP_REPLY)
+        except Exception:
+            logger.exception("Error while queueing submission")
+            await msg.reply("Error handling your message", embed=constants.HELP_REPLY)
         return
 
     async def handle_help(self, msg):
@@ -91,7 +86,7 @@ class MyBot(discord.Client):
     async def on_message(self, msg):
         if msg.author.bot:
             return
-        print("Message received from", msg.author.name)
+        logger.info("Message received from %s", msg.author.name)
         if msg.content.startswith("best") or msg.content.startswith("aoc"):
             await self.handle_best(msg)
         elif msg.content.startswith("submit"):
@@ -104,6 +99,8 @@ class MyBot(discord.Client):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(encoding='utf-8', level=logging.INFO)
+
     intents = discord.Intents.default()
     intents.message_content = True
     intents.messages = True
@@ -115,9 +112,7 @@ if __name__ == "__main__":
     try:
         settings.validators.validate()
     except ValidationError as ve:
-        print(
-            f"Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.\n{ve}"
-        )
+        logger.exception("Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info.")
         sys.exit(1)
     bot = MyBot(intents=intents)
     bot.run(settings.discord.bot_token)
