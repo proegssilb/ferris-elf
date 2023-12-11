@@ -3,7 +3,7 @@ Description="Ferris Elf input fetcher"
 Requires=network-online.target
 
 [Service]
-Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/srv/ferris-elf/.local/bin"
 Type=oneshot
+EnvironmentFile=/srv/ferris-elf/config/env_file
 WorkingDirectory=/srv/ferris-elf/ferris-elf/
 ExecStart=/srv/ferris-elf/.local/bin/poetry run python3 fetch.py
