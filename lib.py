@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 import functools
+import logging
 import traceback
 import os
 from zoneinfo import ZoneInfo
@@ -12,8 +13,11 @@ from messages import SubmitMessage
 doc = docker.from_env()
 
 
+logger = logging.getLogger(__name__)
+
+
 async def build_image(msg, solution):
-    print(f"Building for {msg.author.name}")
+    logger.info("Building for %s", msg.author.name)
     status = await msg.reply("Building...")
     with open("runner/src/code.rs", "wb+") as f:
         f.write(solution)
@@ -27,8 +31,7 @@ async def build_image(msg, solution):
         )
         return True
     except docker.errors.BuildError as err:
-        print("Build Error:")
-        traceback.print_exception(err)
+        logger.exception("Build Error while building for %s", msg.author.name)
         e = ""
         for chunk in err.build_log:
             e += chunk.get("stream") or ""
@@ -38,8 +41,8 @@ async def build_image(msg, solution):
         await status.delete()
 
 
-async def run_image(msg, input):
-    print(f"Running for {msg.author.name}")
+async def run_image(msg, aoc_input):
+    logger.info("Running image/benchmark for %s", msg.author.name)
     # input = ','.join([str(int(x)) for x in input])
     status = await msg.reply("Running benchmark...")
     loop = asyncio.get_event_loop()
@@ -50,7 +53,7 @@ async def run_image(msg, input):
                 doc.containers.run,
                 f"ferris-elf-{msg.author.id}",
                 f"timeout 60 ./target/release/ferris-elf",
-                environment=dict(INPUT=input),
+                environment=dict(INPUT=aoc_input),
                 remove=True,
                 stdout=True,
                 mem_limit="24g",
@@ -61,8 +64,7 @@ async def run_image(msg, input):
         print(out)
         return out
     except docker.errors.ContainerError as err:
-        print("Run Error:")
-        traceback.print_exception(err)
+        logger.exception("Error while running image for %s", msg.author.name)
         await msg.reply(f"Error running benchmark: {err}")
     finally:
         await status.delete()
@@ -116,8 +118,10 @@ async def benchmark(submit_msg: SubmitMessage):
             ),
         )
         results.append(result)
+
+    # TODO: Make this conditional on data actually being inserted into the DB
     db.commit()
-    print("Inserted results into DB")
+    logger.info("Inserted %s results into the DB", len(results))
 
     median = avg([r["median"] for r in results])
     average = avg([r["average"] for r in results])
