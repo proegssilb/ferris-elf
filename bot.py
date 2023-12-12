@@ -55,7 +55,7 @@ class MyBot(discord.Client):
                 embed.add_field(name="Part 2", value=times2_str, inline=True)
             await msg.reply(embed=embed)
         except Exception:
-            logger.exception("Errror while processing request for leaderboard.")
+            logger.exception("Error while processing request for leaderboard.")
             await msg.reply("Error handling your message", embed=constants.HELP_REPLY)
         return
 
