@@ -1,7 +1,9 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 import functools
 import traceback
 import os
+from zoneinfo import ZoneInfo
 
 import docker
 from database import Database
@@ -154,3 +156,8 @@ def get_best_times(day):
         user_id = int(user_id)
         times2.append((user_id, time))
     return (times1, times2)
+
+
+def today():
+    stamp = datetime.now(tz=ZoneInfo("America/New_York"))
+    return min(stamp.day, 25)
