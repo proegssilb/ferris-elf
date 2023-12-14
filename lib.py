@@ -1,14 +1,22 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 import functools
+import json
 import logging
-import traceback
+import pathlib
+import shutil
+from sqlite3 import Connection, Cursor
+import statistics as stats
+import tempfile
 import os
 from zoneinfo import ZoneInfo
 
+import discord
 import docker
 from database import Database
 from messages import SubmitMessage
+
+from config import settings
 
 doc = docker.from_env()
 
@@ -16,135 +24,233 @@ doc = docker.from_env()
 logger = logging.getLogger(__name__)
 
 
-async def build_image(msg, solution):
-    logger.info("Building for %s", msg.author.name)
-    status = await msg.reply("Building...")
-    with open("runner/src/code.rs", "wb+") as f:
-        f.write(solution)
-
-    loop = asyncio.get_event_loop()
-
-    try:
-        await loop.run_in_executor(
-            None,
-            functools.partial(doc.images.build, path="runner", tag=f"ferris-elf-{msg.author.id}"),
-        )
-        return True
-    except docker.errors.BuildError as err:
-        logger.exception("Build Error while building for %s", msg.author.name)
-        e = ""
-        for chunk in err.build_log:
-            e += chunk.get("stream") or ""
-        await msg.reply(f"Error building benchmark: {err}")
-        return False
-    finally:
-        await status.delete()
-
-
-async def run_image(msg, aoc_input):
-    logger.info("Running image/benchmark for %s", msg.author.name)
-    # input = ','.join([str(int(x)) for x in input])
-    status = await msg.reply("Running benchmark...")
-    loop = asyncio.get_event_loop()
-    try:
-        out = await loop.run_in_executor(
-            None,
-            functools.partial(
-                doc.containers.run,
-                f"ferris-elf-{msg.author.id}",
-                f"timeout 60 ./target/release/ferris-elf",
-                environment=dict(INPUT=aoc_input),
-                remove=True,
-                stdout=True,
-                mem_limit="24g",
-                network_mode="none",
-            ),
-        )
-        out = out.decode("utf-8")
-        print(out)
-        return out
-    except docker.errors.ContainerError as err:
-        logger.exception("Error while running image for %s", msg.author.name)
-        await msg.reply(f"Error running benchmark: {err}")
-    finally:
-        await status.delete()
-
-
 async def benchmark(submit_msg: SubmitMessage):
-    (msg, day, code, part) = submit_msg.msg, submit_msg.day, submit_msg.code, submit_msg.part
-    build = await build_image(msg, code)
-    if not build:
-        return
+    msg, day, code, part = submit_msg.msg, submit_msg.day, submit_msg.code, submit_msg.part
+    op_name, op_id = msg.author.name, msg.author.id
 
-    day_path = f"{day}/"
     try:
-        onlyfiles = [f for f in os.listdir(day_path) if os.isfile(os.path.join(day_path, f))]
+        db = Database().get()
+        cur = db.cursor()
+        results = []
+        with tempfile.TemporaryDirectory(suffix=f"-ferris-elf-{op_id}") as tmpdir:
+            populate_tmp_dir(tmpdir, code)
+            if not await build_code(op_name, op_id, tmpdir):
+                # This reply is not good UX, but it's better than silence.
+                await msg.reply("Build failed.")
+                return
+            answers_map = load_answers(cur, day, part)
+            for in_file in get_input_files(day):
+                logger.info("Processing file: %s", in_file)
+                load_input(tmpdir, day, in_file)
+                result_lst = await run_code(op_name, op_id, tmpdir, in_file)
+                result = process_run_result(in_file, answers_map, result_lst)
+                results.append(result)
+            
+            if len(results) > 0:
+                save_results(cur, op_id, day, part, code, results)
+                db.commit()
+            
+        verified_results = [r for r in results if r.get("verified", False)]
+        if len(verified_results) > 0:
+            median = stats.mean([r["median"] for r in verified_results])
+            average = stats.mean([r["average"] for r in verified_results])
+            await msg.reply(
+                embed=discord.Embed(
+                    title="Benchmark complete (Verified)",
+                    description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+                    )
+                )
+        else:
+            median = stats.mean([r["median"] for r in results])
+            average = stats.mean([r["average"] for r in results])
+            await msg.reply(
+                embed=discord.Embed(
+                    title="Benchmark complete (Unverified)",
+                    description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+                )
+            )
+
     except Exception:
-        await msg.reply(f"Failed to read input files for day {day}, part {part}")
-        return
+        logger.exception("Unhandled exception while benchmarking.")
+        await msg.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
 
-    db = Database().get()
 
-    verified = False
-    results = []
-    for i, file in enumerate(onlyfiles):
-        rows = db.cursor().execute(
-            "SELECT answer2 FROM solutions WHERE key = ? AND day = ? AND part = ?",
-            (file, day, part),
+def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
+    """
+    Set up tmp_dir for building. This copies in the runner and submitted code,
+    but not the AOC inputs. We'll read those later.
+    """
+    logger.info("Building temp dir to use as volume")
+    # Step 1: Copy all the rust files
+    script_dir = os.path.dirname(__file__)
+    runner_src_dir = os.path.join(script_dir, "runner")
+    ignores = shutil.ignore_patterns("*target*", "Dockerfile", "**/.gitkeep")
+    shutil.copytree(runner_src_dir, tmp_dir, dirs_exist_ok=True, ignore=ignores)
+
+    # Step 2: Write code.
+    code_path = os.path.join(tmp_dir, "src", "code.rs")
+    with open(code_path, "wb") as code_file:
+        code_file.write(solution_code)
+
+async def build_code(author_name: str, author_id: int, tmp_dir: str):
+    """
+    Designed to be used with a basic rust container. Run the container
+    with `cargo build` to build the code. Code is mounted in as a volume,
+    so that binaries are saved between build/run.
+    """
+    logger.info("Running container to build code for %s", author_id)
+    try:
+        loop = asyncio.get_event_loop()
+        out = await loop.run_in_executor(None, functools.partial(
+            doc.containers.run,
+            settings.docker.container_ref,
+            "timeout --kill-after=5s 30s cargo build",
+            remove=True,
+            stdout=True,
+            mem_limit="8g",
+            # network_mode="none", # Want no-network, but it's downloading crates. :(
+            volumes={tmp_dir: {'bind': '/app', 'mode': 'rw'}}
+        ))
+        out = out.decode("utf-8")
+        logger.debug("Build container output: %s", out)
+        return True
+    except docker.errors.ContainerError:
+        logger.exception("Error in docker while building code")
+        return False
+
+def load_answers(cursor: Cursor, day: int, part: int):
+    """Load the expected answers for each input file."""
+    rows = cursor.execute(
+            "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
+            (day, part),
         )
 
-        with open(os.path.join(day_path, file), "r") as f:
-            input = f.read()
+    answer_map = {}
+    for r in rows:
+        (key, answer) = r
+        answer_map[key] = answer
 
-        status = await msg.reply(f"Benchmarking input {i+1}")
-        out = await run_image(msg, input)
-        if not out:
-            return
-        await status.delete()
+    return answer_map
 
-        result = {}
-        # TODO: get the answer and the bench results from the docker and verify them here
+def get_input_files(day: int):
+    """
+    List all the input files that exist for the current day.
+    """
+    day_path = get_input_dir_for_day(day)
+    return [f for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))]
 
-        cur.execute(
-            "INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                str(msg.author.id),
-                code,
-                day,
-                part,
-                result["median"],
-                result["answer"],
-                result["answer"],
-            ),
-        )
-        results.append(result)
+def load_input(tmp_dir: str, day: int, file_name: str):
+    """
+    Populate tmp_dir with the input files for the requested year/day.
+    """
+    day_path = get_input_dir_for_day(day)
+    container_inputs_path = os.path.join(tmp_dir, "inputs")
 
-    # TODO: Make this conditional on data actually being inserted into the DB
-    db.commit()
-    logger.info("Inserted %s results into the DB", len(results))
+    # Step 1: Clear out anything there
 
-    median = avg([r["median"] for r in results])
-    average = avg([r["average"] for r in results])
+    for path in pathlib.Path(container_inputs_path).glob("**/*"):
+        if path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
 
-    if verified:
-        await msg.reply(
-            embed=discord.Embed(
-                title="Benchmark complete",
-                description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
-            )
-        )
-    else:
-        await msg.reply(
-            embed=discord.Embed(
-                title="Benchmark complete (Unverified)",
-                description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
-            )
-        )
+    for path in pathlib.Path(container_inputs_path).glob("**/.*"):
+        if path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
 
+    # Step 2: Copy the appropriate file.
+    shutil.copy(os.path.join(day_path, file_name), container_inputs_path)
+
+async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str):
+    """
+    Designed to be used with a basic rust container. Given the code already
+    built in tmp_dir as a volume, run the benchmark itself.
+    """
+    in_file_name = os.path.join("/app", "inputs", in_file)
+    logger.info("Running container to run code for %s", author_id)
+    try:
+        loop = asyncio.get_event_loop()
+        out = await loop.run_in_executor(None, functools.partial(
+            doc.containers.run,
+            settings.docker.container_ref,
+            "timeout --kill-after=5s 60s cargo criterion --message-format=json",
+            environment={
+                "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
+            },
+            remove=False,
+            stdout=True,
+            stderr=True,
+            mem_limit="8g",
+            # network_mode="none", # Downloading crates.
+            volumes={tmp_dir: {'bind': '/app', 'mode': 'rw'}}
+        ))
+        out: str = out.decode("utf-8")
+        logger.debug("Run container output (type: %s):\n%s", type(out), out)
+        results = []
+
+        for l in out.splitlines():
+            if len(l) == 0 or l[0] != '{':
+                continue
+            l_data = json.loads(l)
+            results.append(l_data)
+
+        logger.debug("Results from container run for user %s, file %s: %s", author_id, in_file, results)
+        return results
+    except docker.errors.ContainerError:
+        logger.exception("Error in docker while running code")
+        return None
+
+def process_run_result(in_file, answers_map, result_lst):
+    """Given JSON blobs extracted from a container's stdout, get the core stats out."""
+    # `result` should be a dataclass, not a dict. Another time.
+    result = {}
+    for blob in result_lst:
+        reason = blob.get("reason", None)
+        if reason == None:
+            continue
+        elif reason == "ferris-answer":
+            answer = blob["answer"]
+            result["answer"] = answer
+            if answers_map.get(in_file, None) == answer:
+                result["verified"] = True
+            else:
+                result["verified"] = False
+        elif reason == "benchmark-complete":
+            result["typical"] = blob["typical"]["estimate"]
+            result["average"] = blob["mean"]["estimate"]
+            result["median"] = blob["median"]["estimate"]
+            result["high_bound"] = blob["typical"]["upper_bound"]
+            result["low_bound"] = blob["typical"]["lower_bound"]
+    logger.info("Computed run result: %s", result)
+    return result
+
+def save_results(cur: Cursor, author_id: int, day: int, part:int, code: bytes, results):
+    """
+    Save the benchmark run results to the DB.
+    """
+
+    str_code = code.decode()
+    db_results = [(str(author_id), str_code, day, part, r["median"], int(r["answer"]) if r["answer"].isdigit() else None, r["answer"]) for r in results]
+
+    query = "INSERT INTO runs(user, code, day, part, time, answer, answer2) VALUES (?, ?, ?, ?, ?, ?, ?)"
+
+    cur.executemany(query, db_results)
+
+def ns(v):
+    """Format number of nanoseconds for display."""
+    if v > 1e9:
+        return f"{v / 1e9:.2f}s"
+    if v > 1e6:
+        return f"{v / 1e6:.2f}ms"
+    if v > 1e3:
+        return f"{v / 1e3:.2f}µs"
+    return f"{v:.2f}ns"
 
 def get_best_times(day):
     db = Database().get()
-    query = f"""SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
+    query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
            GROUP BY user ORDER BY time"""
 
     times1 = []
@@ -152,16 +258,27 @@ def get_best_times(day):
         if user_id is None or time is None:
             continue
         user_id = int(user_id)
-        times1.apend((user_id, time))
+        times1.append((user_id, ns(time)))
     times2 = []
     for user_id, time in db.cursor().execute(query, (day, 2)):
         if user_id is None or time is None:
             continue
         user_id = int(user_id)
-        times2.append((user_id, time))
+        times2.append((user_id, ns(time)))
     return (times1, times2)
 
 
+def get_input_dir_for_day(day: int):
+    day_path = os.path.join(settings.aoc.inputs_dir, str(day))
+    return os.path.abspath(day_path)
+
+
+def year():
+    """Return the current year, as AOC code should understand it."""
+    stamp = datetime.now(tz=ZoneInfo("America/New_York"))
+    return stamp.year
+
 def today():
+    """Return the current day, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     return min(stamp.day, 25)

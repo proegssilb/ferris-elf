@@ -167,3 +167,4 @@ inputs/
 
 # Database File
 database.db
+.envrc

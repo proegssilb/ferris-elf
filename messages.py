@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import discord
 
 import constants
 
@@ -12,25 +13,24 @@ import constants
 
 @dataclass
 class SubmitMessage:
-    msg: object
-    code: str
+    msg: discord.Message
+    code: bytes
     day: int
     part: int
 
     @staticmethod
-    def parse(msg):
-        code = msg.attachments[0].read()
+    def parse(msg: discord.Message, first_attachment: bytes):
         parts = [p for p in msg.content.split(" ") if p]
         day = int(parts[1]) if len(parts) > 1 else today()
         part = int(parts[2]) if len(parts) > 2 else 1
         if day < 1 or day > constants.MAX_DAY or part < 1 or part > 2:
             raise Exception(f"day/part out of bounds: {day} {part}")
-        return SubmitMessage(msg, code, day, part)
+        return SubmitMessage(msg, first_attachment, day, part)
 
 
 @dataclass
 class GetBestTimesMessage:
-    msg: object
+    msg: discord.Message
     day: int
     part: int
 
