@@ -179,7 +179,7 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
             environment={
                 "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
             },
-            remove=False,
+            remove=True,
             stdout=True,
             stderr=True,
             mem_limit="8g",
