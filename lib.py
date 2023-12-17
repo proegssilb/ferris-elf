@@ -9,7 +9,7 @@ import shutil
 from sqlite3 import Connection, Cursor
 import statistics as stats
 import tempfile
-from typing import Optional
+from typing import Optional, Tuple
 import os
 from zoneinfo import ZoneInfo
 
@@ -263,7 +263,7 @@ def ns(v) -> str:
         return f"{v / 1e3:.2f}µs"
     return f"{v:.0f}ns"
 
-def get_best_times(day) -> (list[(int, str)], list[(int, str)]):
+def get_best_times(day) -> Tuple[list[Tuple[int, str]], list[Tuple[int, str]]]:
     """
     Get the current contents of the leaderboard for the given day. Results are returned as a 
     tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
