@@ -10,13 +10,11 @@ rayon = "1"
 regex = "1"
 parse-display = "0.6"
 memchr = "2"
-core_simd = { git = "https://github.com/rust-lang/portable-simd" }
 arrayvec = "0.7"
 smallvec = "1"
 rustc-hash = "1"
 bitvec = "1"
 dashmap = "5"
-atoi_radix10 = { git = "https://github.com/gilescope/atoi_radix10" }
 btoi = "0.4"
 nom = "7"
 ascii = "1.1.0"

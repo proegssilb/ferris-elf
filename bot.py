@@ -64,7 +64,7 @@ class MyBot(discord.Client):
             if len(msg.attachments) == 0:
                 await msg.reply("Please provide the code as a file attachment")
                 return
-            submit_msg = SubmitMessage.parse(msg)
+            submit_msg = SubmitMessage.parse(msg, await msg.attachments[0].read())
             logger.info(
                 "Queueing submission for %s, message = [%s], queue length = %s",
                 msg.author,
@@ -89,7 +89,7 @@ class MyBot(discord.Client):
         await msg.reply(embed=constants.INFO_REPLY)
         return
 
-    async def on_message(self, msg):
+    async def on_message(self, msg: discord.Message):
         if msg.author.bot:
             return
         logger.info("Message received from %s", msg.author.name)

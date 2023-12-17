@@ -64,11 +64,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d92bec98840b8f03a5ff5413de5293bfcd8bf96467cf5452609f939ec6f5de16"
 
 [[package]]
-name = "atoi_radix10"
-version = "0.0.1"
-source = "git+https://github.com/gilescope/atoi_radix10#b1d6e6c1009f0971efebfa55a61b6cb7c0b5d641"
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -208,11 +203,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
-name = "core_simd"
-version = "0.1.0"
-source = "git+https://github.com/rust-lang/portable-simd#e0e9a4517f9fc021283514da387e70a56061bd3e"
-
-[[package]]
 name = "cpp_demangle"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -346,11 +336,9 @@ version = "0.0.0"
 dependencies = [
  "arrayvec",
  "ascii",
- "atoi_radix10",
  "bitvec",
  "btoi",
  "bytemuck",
- "core_simd",
  "criterion",
  "dashmap",
  "itertools",
