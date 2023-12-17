@@ -132,7 +132,7 @@ def load_answers(cursor: Cursor, day: int, part: int):
 
     return answer_map
 
-def get_input_files(day: int):
+def get_input_files(day: int) -> list[str]:
     """
     List all the input files that exist for the current day.
     """
