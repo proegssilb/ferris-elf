@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import functools
 import json
@@ -8,6 +9,7 @@ import shutil
 from sqlite3 import Connection, Cursor
 import statistics as stats
 import tempfile
+from typing import Optional
 import os
 from zoneinfo import ZoneInfo
 
@@ -25,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 async def benchmark(submit_msg: SubmitMessage):
+    """Run the entire benchmark process, end-to-end."""
     msg, day, code, part = submit_msg.msg, submit_msg.day, submit_msg.code, submit_msg.part
     op_name, op_id = msg.author.name, msg.author.id
 
@@ -50,10 +53,10 @@ async def benchmark(submit_msg: SubmitMessage):
                 save_results(cur, op_id, day, part, code, results)
                 db.commit()
             
-        verified_results = [r for r in results if r.get("verified", False)]
+        verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
-            median = stats.mean([r["median"] for r in verified_results])
-            average = stats.mean([r["average"] for r in verified_results])
+            median = stats.mean([r.median for r in verified_results])
+            average = stats.mean([r.average for r in verified_results])
             await msg.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
@@ -61,8 +64,8 @@ async def benchmark(submit_msg: SubmitMessage):
                     )
                 )
         else:
-            median = stats.mean([r["median"] for r in results])
-            average = stats.mean([r["average"] for r in results])
+            median = stats.mean([r.median for r in results])
+            average = stats.mean([r.average for r in results])
             await msg.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
@@ -92,7 +95,7 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
     with open(code_path, "wb") as code_file:
         code_file.write(solution_code)
 
-async def build_code(author_name: str, author_id: int, tmp_dir: str):
+async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
     """
     Designed to be used with a basic rust container. Run the container
     with `cargo build` to build the code. Code is mounted in as a volume,
@@ -163,7 +166,7 @@ def load_input(tmp_dir: str, day: int, file_name: str):
     # Step 2: Copy the appropriate file.
     shutil.copy(os.path.join(day_path, file_name), container_inputs_path)
 
-async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str):
+async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str) -> Optional[list[str]]:
     """
     Designed to be used with a basic rust container. Given the code already
     built in tmp_dir as a volume, run the benchmark itself.
@@ -202,27 +205,39 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
         logger.exception("Error in docker while running code")
         return None
 
-def process_run_result(in_file, answers_map, result_lst):
+@dataclass(slots=True)
+class RunResult:
+    """Dataclass holding summary of a benchmarking run."""
+    answer: int | str
+    verified: bool
+    # These are optional because defaulting to zero seems like a bad idea.
+    typical: Optional[float]
+    average: Optional[float]
+    median: Optional[float]
+    high_bound: Optional[float]
+    low_bound: Optional[float]
+
+def process_run_result(in_file, answers_map, result_lst) -> RunResult:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
     # `result` should be a dataclass, not a dict. Another time.
-    result = {}
+    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, high_bound=None, low_bound=None)
     for blob in result_lst:
         reason = blob.get("reason", None)
-        if reason == None:
+        if reason is None:
             continue
         elif reason == "ferris-answer":
             answer = blob["answer"]
-            result["answer"] = answer
+            result.answer = answer
             if answers_map.get(in_file, None) == answer:
-                result["verified"] = True
+                result.verified = True
             else:
-                result["verified"] = False
+                result.verified = False
         elif reason == "benchmark-complete":
-            result["typical"] = blob["typical"]["estimate"]
-            result["average"] = blob["mean"]["estimate"]
-            result["median"] = blob["median"]["estimate"]
-            result["high_bound"] = blob["typical"]["upper_bound"]
-            result["low_bound"] = blob["typical"]["lower_bound"]
+            result.typical = blob["typical"]["estimate"]
+            result.average = blob["mean"]["estimate"]
+            result.median= blob["median"]["estimate"]
+            result.high_bound = blob["typical"]["upper_bound"]
+            result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
     return result
 
@@ -232,13 +247,13 @@ def save_results(cur: Cursor, author_id: int, day: int, part:int, code: bytes, r
     """
 
     str_code = code.decode()
-    db_results = [(str(author_id), str_code, day, part, r["median"], int(r["answer"]) if r["answer"].isdigit() else None, r["answer"]) for r in results]
+    db_results = [(str(author_id), str_code, day, part, r.median, int(r.answer) if isinstance(r.answer, int) or r.answer.isdigit() else None, r.answer) for r in results]
 
     query = "INSERT INTO runs(user, code, day, part, time, answer, answer2) VALUES (?, ?, ?, ?, ?, ?, ?)"
 
     cur.executemany(query, db_results)
 
-def ns(v):
+def ns(v) -> str:
     """Format number of nanoseconds for display."""
     if v > 1e9:
         return f"{v / 1e9:.2f}s"
@@ -248,7 +263,11 @@ def ns(v):
         return f"{v / 1e3:.2f}µs"
     return f"{v:.2f}ns"
 
-def get_best_times(day):
+def get_best_times(day) -> (list[(int, str)], list[(int, str)]):
+    """
+    Get the current contents of the leaderboard for the given day. Results are returned as a 
+    tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
+    """
     db = Database().get()
     query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
            GROUP BY user ORDER BY time"""
@@ -268,17 +287,18 @@ def get_best_times(day):
     return (times1, times2)
 
 
-def get_input_dir_for_day(day: int):
+def get_input_dir_for_day(day: int) -> str:
+    """Return the exact directory that contains the input files for the given day."""
     day_path = os.path.join(settings.aoc.inputs_dir, str(day))
     return os.path.abspath(day_path)
 
 
-def year():
+def year() -> int:
     """Return the current year, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     return stamp.year
 
-def today():
+def today() -> int:
     """Return the current day, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     return min(stamp.day, 25)
