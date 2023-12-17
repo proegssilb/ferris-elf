@@ -261,7 +261,7 @@ def ns(v) -> str:
         return f"{v / 1e6:.2f}ms"
     if v > 1e3:
         return f"{v / 1e3:.2f}µs"
-    return f"{v:.2f}ns"
+    return f"{v:.0f}ns"
 
 def get_best_times(day) -> (list[(int, str)], list[(int, str)]):
     """
