@@ -3,6 +3,7 @@ name: Docker Image CI
 on:
   push:
     branches: [ "main" ]
+  pull_request: {}
   schedule:
     - cron:  '27 4,17 * * *'
 
@@ -17,10 +18,11 @@ jobs:
     - name: Build & Publish the runner image
       uses: elgohr/Publish-Docker-Github-Action@v5
       with:
-        name: proegssilb/ferris-elf/ferris-elf-bencher
+        name: proegssilb/ferris-elf-bencher
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: ghcr.io
         default_branch: main
         workdir: runner
         tags: "latest,${{ steps.dategen.outputs.docker-version }}"
+        no_push: ${{ github.event_name == 'pull_request' }}
