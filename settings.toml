@@ -1,11 +1,12 @@
+dynaconf_merge = true
+
 [db]
 filename = "database.db"
 
 [discord]
-support_info = "Ping {} for any questions"
-rust_version_info = "latest nightly from rustup"
+support_info = "@format Ping <@{this.discord.owner_id}> for any support issues"
+rust_version_info = "latest stable for Docker containers"
 hw_info = "Benchmarks are run in a controlled sandbox with limited resources."
-methodology = "We use criterion to benchmark. Submissions may be manually reviewed."
 
 [docker]
 container_ref = "ferris-elf-bencher"

@@ -1,9 +1,10 @@
 import discord
+from config import settings
 
 HELP_REPLY = discord.Embed(
     title="Ferris Elf help page",
     color=0xE84611,
-    description="""
+    description=f"""
 **help** - Send this message
 **info** - Some useful information about benchmarking
 **best _[day]_ _[part]_** - Best times so far for a day
@@ -11,25 +12,28 @@ HELP_REPLY = discord.Embed(
 
 If [_day_] and/or [_part_] is ommited, they are assumed to be today and part 1
 
-Message <@{}> for any questions""",
+{settings.discord.support_info}""",
 )
 
 INFO_REPLY = discord.Embed(
     title="Benchmark information",
     color=0xE84611,
-    description="""
-When sending code for a benchmark, you should make sure it looks like.
+    description=f"""**Submissions**
+When sending code for a benchmark, you should make sure it looks like this:
+
 ```rs
-pub fn run(input: &str) -> i64 {
+pub fn run(input: &str) -> i64 {{
     0
-}
+}}
 ```
 
 Input can be either a &str or a &[u8], which ever you prefer. The return should \
-be the solution to the day and part. 
+be the solution to the day and part.
 
-Rust version is latest Docker nightly
+Rust version is {{settings.discord.rust_version_info}}.
+
 **Available dependencies**
+
 ```toml
 bytemuck = "1"
 itertools = "0.10"
@@ -37,20 +41,27 @@ rayon = "1"
 regex = "1"
 parse-display = "0.6"
 memchr = "2"
-core_simd = { git = "https://github.com/rust-lang/portable-simd" }
 arrayvec = "0.7"
 smallvec = "1"
 rustc-hash = "1"
 bitvec = "1"
 dashmap = "5"
-atoi_radix10 = { git = "https://github.com/gilescope/atoi_radix10" }
 btoi = "0.4"
+nom = "7"
+ascii = "1.1.0"
 ```
-Check back often as the available dependencies are bound to change over the course of AOC.
-If you want a dependency added, ping <@{}> asking them to add it.
+
+Check back often as the available dependencies are bound to change over the course of AOC. \
+If you want a dependency added, ping <@{settings.discord.owner_id}> asking them to add it.
+
+**Methodology**
+We use Criterion to benchmark, with the input black-boxed via Criterion's `black_box`. \
+Submissions may be manually reviewed. Criterion provides a few ways to estimate the runtime. \
+Currently, we save what Criterion reports as the 'median', but it is on our to-do list to \
+review this choice.
 
 **Hardware**
-{}
+{settings.discord.hw_info}
 
 
 Be kind and do not abuse :)""",
