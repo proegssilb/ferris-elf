@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import io
 import json
 import logging
 import os
@@ -7,6 +8,7 @@ import pathlib
 import shutil
 import statistics as stats
 import tempfile
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from sqlite3 import Cursor
@@ -19,6 +21,7 @@ from discord.ext import commands
 
 from config import settings
 from database import Database
+from error_handler import get_full_class_name
 
 doc = docker.from_env()
 
@@ -71,9 +74,15 @@ async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
                 )
             )
 
-    except Exception:
-        logger.exception("Unhandled exception while benchmarking.")
-        await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
+    except Exception as e:
+        logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
+        with io.BytesIO() as buf:
+            buf.write(bytes(''.join(
+                traceback.format_exception(e)), encoding='utf8'))
+            buf.seek(0)
+            errtxt = (f"Unhandled exception while benchmarking day {day}, part {part}: `{get_full_class_name(e)}`: "
+                      f"`{e}`")[:2000]
+            await ctx.reply(errtxt, file=discord.File(buf, filename="traceback.txt"))
 
 
 def populate_tmp_dir(tmp_dir: str, solution_code: bytes):

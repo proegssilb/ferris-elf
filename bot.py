@@ -113,10 +113,10 @@ class Commands(commands.Cog):
             self.bot.queue.qsize(),
         )
         # using a tuple is probably the most readable but shut
-        self.bot.queue.put_nowait((ctx, day, part, code))
+        self.bot.queue.put_nowait((ctx, day, part, await code.read()))
         await ctx.reply(
-            f"Your submission for day {day} part {part} has been queued."
-            + f"There are {self.bot.queue.qsize()} submissions in the queue)"
+            f"Your submission for day {day} part {part} has been queued. "
+            f"There are {self.bot.queue.qsize()} submissions in the queue."
         )
 
     @commands.hybrid_command()
