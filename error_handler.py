@@ -16,6 +16,10 @@ def get_full_class_name(obj):
         return obj.__class__.__name__
     return module + '.' + obj.__class__.__name__
 
+class NonBugError(Exception):
+    """When this is raised instead of a normal Exception, on_command_error() will not attach a traceback or github
+    link. """
+    pass
 
 # completely overkill error handler shamelessly ripped from MediaForge, a bot i wrote
 class ErrorHandlerCog(commands.Cog):
@@ -77,11 +81,14 @@ class ErrorHandlerCog(commands.Cog):
                 err += f" Run `help` to see how to use this command."
             await logandreply(err)
         elif isinstance(commanderror, discord.ext.commands.errors.NoPrivateMessage):
-            err = f"{errorstring}"
+            err = f"⚠️ {errorstring}"
             await logandreply(err)
         elif isinstance(commanderror, discord.ext.commands.errors.CheckFailure):
-            err = f"{errorstring}"
+            err = f"⚠️ {errorstring}"
             await logandreply(err)
+        elif isinstance(commanderror, discord.ext.commands.errors.CommandInvokeError) and \
+                isinstance(commanderror.original, NonBugError):
+            await logandreply(f"‼️ {str(commanderror.original)[:1000]}")
         else:
             if isinstance(commanderror, discord.ext.commands.errors.CommandInvokeError) or \
                     isinstance(commanderror, discord.ext.commands.HybridCommandError):
