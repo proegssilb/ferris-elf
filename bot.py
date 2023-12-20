@@ -48,15 +48,6 @@ def today():
     return min(dt.day, constants.MAX_DAY)
 
 
-# TODO: make some ugly hack so slash commands get this hinted before sending
-class Day(commands.Converter):
-    async def convert(self, ctx: commands.Context, argument: str) -> int:
-        day = int(argument)
-        if day > today() or day < 1:
-            raise commands.BadArgument(f"Day {day} out of bounds.")
-        return day
-
-
 # if i don't use a cog, the functions would need to be in __name__ == __main__
 class Commands(commands.Cog):
     def __init__(self, sbot: MyBot):
@@ -72,10 +63,12 @@ class Commands(commands.Cog):
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
     @commands.hybrid_command(aliases=["aoc", "lb"])
-    async def best(self, ctx: commands.Context, day: Annotated[Optional[int], Day] = None,
+    async def best(self, ctx: commands.Context, day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
                    part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None):
         if day is None:
             day = today()
+        if day > today():
+            raise commands.BadArgument(f"Day {day} is in the future!")
 
         async def format_times(times):
             formatted = ""
@@ -99,8 +92,10 @@ class Commands(commands.Cog):
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     @commands.hybrid_command()
-    async def submit(self, ctx: commands.Context, day: Annotated[int, Day], part: typing.Literal[1, 2],
+    async def submit(self, ctx: commands.Context, day: commands.Range[int, 1, 25], part: typing.Literal[1, 2],
                      code: discord.Attachment):
+        if day > today():
+            raise commands.BadArgument(f"Day {day} is in the future!")
         logger.info(
             "Queueing submission for %s, message = [%s], queue length = %s",
             ctx.author,
