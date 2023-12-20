@@ -2,9 +2,7 @@ import asyncio
 import logging
 import sys
 import typing
-from datetime import datetime
 from typing import Annotated, Optional, Literal
-from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands
@@ -43,11 +41,6 @@ class MyBot(commands.Bot):
                 logger.exception("Error while processing submission.")
 
 
-def today():
-    dt = datetime.now(tz=ZoneInfo("America/New_York"))
-    return min(dt.day, constants.MAX_DAY)
-
-
 # if i don't use a cog, the functions would need to be in __name__ == __main__
 class Commands(commands.Cog):
     def __init__(self, sbot: MyBot):
@@ -66,9 +59,10 @@ class Commands(commands.Cog):
     async def best(self, ctx: commands.Context, day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
                    part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None):
         if day is None:
-            day = today()
-        if day > today():
-            raise commands.BadArgument(f"Day {day} is in the future!")
+            day = lib.today()
+        else:
+            if day > lib.today():
+                raise commands.BadArgument(f"Day {day} is in the future!")
 
         async def format_times(times):
             formatted = ""
@@ -94,7 +88,7 @@ class Commands(commands.Cog):
     @commands.hybrid_command()
     async def submit(self, ctx: commands.Context, day: commands.Range[int, 1, 25], part: typing.Literal[1, 2],
                      code: discord.Attachment):
-        if day > today():
+        if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
         logger.info(
             "Queueing submission for %s, message = [%s], queue length = %s",
