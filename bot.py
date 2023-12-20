@@ -3,7 +3,7 @@ import logging
 import sys
 import typing
 from datetime import datetime
-from typing import Annotated, Optional, Literal, TypeVar
+from typing import Annotated, Optional, Literal
 from zoneinfo import ZoneInfo
 
 import discord
@@ -14,12 +14,7 @@ import constants
 import lib
 from config import settings
 from database import Database
-from error_handler import ErrorHandlerCog, NonBugError
-
-T = TypeVar("T")
-OrNone = Annotated[Optional[T], T]
-# python 3.12 syntax
-# type OptFixed[T] = Annotated[Optional[T], T]
+from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +80,7 @@ class Commands(commands.Cog):
         async def format_times(times):
             formatted = ""
             for user_id, time in times:
-                user = self.get_user(user_id) or await self.fetch_user(user_id)
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
                 if user:
                     formatted += f"\t{user.name}:  **{time}**\n"
             return formatted
@@ -128,8 +123,9 @@ class Commands(commands.Cog):
         await ctx.reply(embed=constants.INFO_REPLY)
 
 
-async def prefix(cbot: commands.Bot, message: discord.Message) -> typing.List[str]:
-    return ["aoc ", "aoc"]
+async def prefix(dbot: commands.Bot, message: discord.Message) -> typing.List[str]:
+    # TODO: guild-specific prefixes
+    return ["aoc ", "aoc", f'<@!{dbot.user.id}> ', f'<@{dbot.user.id}> ', f'<@!{dbot.user.id}>', f'<@{dbot.user.id}>']
 
 
 if __name__ == "__main__":
