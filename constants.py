@@ -1,9 +1,11 @@
 import discord
 
+import config
+
 HELP_REPLY = discord.Embed(
     title="Ferris Elf help page",
     color=0xE84611,
-    description="""
+    description=f"""
 **help** - Send this message
 **info** - Some useful information about benchmarking
 **best _[day]_ _[part]_** - Best times so far for a day
@@ -11,7 +13,7 @@ HELP_REPLY = discord.Embed(
 
 If [_day_] and/or [_part_] is ommited, they are assumed to be today and part 1
 
-Message <@{}> for any questions""",
+Message <@{config.settings.discord.owner_id}> for any questions""",
 )
 
 INFO_REPLY = discord.Embed(
