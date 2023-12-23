@@ -112,7 +112,7 @@ class Commands(commands.Cog):
         await ctx.reply(embed=constants.INFO_REPLY)
 
 
-async def prefix(dbot: commands.Bot, message: discord.Message) -> typing.List[str]:
+async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
     # TODO: guild-specific prefixes
     return ["aoc ", "aoc", f'<@!{dbot.user.id}> ', f'<@{dbot.user.id}> ', f'<@!{dbot.user.id}>', f'<@{dbot.user.id}>']
 
