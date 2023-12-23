@@ -47,15 +47,14 @@ class ErrorHandlerCog(commands.Cog):
                                                                         embed=embed)
                 else:
                     return await ctx.reply(msg, file=file, embed=embed)
-            elif ctx.guild and not ctx.channel.permissions_for(ctx.me).send_messages:
-                logger.debug(f"No permissions to reply to {ctx.message.id}, trying to DM author.")
-                return await dmauthor(msg, file=file, embed=embed)
             else:
                 try:
                     return await ctx.reply(msg, file=file, embed=embed)
                 except discord.Forbidden:
-                    logger.debug(f"Forbidden to reply to {ctx.message.id}, trying to DM author")
-                    return await dmauthor(msg, file=file, embed=embed)
+                    logger.debug(f"Forbidden to reply to {ctx.message.id}")
+                    if ctx.guild:
+                        logger.debug("Trying to DM author")
+                        return await dmauthor(msg, file=file, embed=embed)
 
         async def logandreply(message):
             if ctx.guild:
