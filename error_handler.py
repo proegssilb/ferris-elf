@@ -11,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_full_class_name(obj):
-    module = obj.__class__.__module__
-    if module is None or module == str.__class__.__module__:
-        return obj.__class__.__name__
-    return module + '.' + obj.__class__.__name__
+    """
+    Returns the fully qualified class name of `obj`, used for more clear error reporting.
+    based on https://stackoverflow.com/a/2020083/9044183
+    """
+    klass = obj.__class__
+    return klass.__module__ + '.' + klass.__qualname__
 
 
 class NonBugError(Exception):
@@ -27,7 +29,6 @@ class NonBugError(Exception):
 class ErrorHandlerCog(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
-        self.antispambucket = {}
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, commanderror: commands.CommandError):
