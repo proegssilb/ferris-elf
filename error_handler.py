@@ -16,10 +16,12 @@ def get_full_class_name(obj):
         return obj.__class__.__name__
     return module + '.' + obj.__class__.__name__
 
+
 class NonBugError(Exception):
     """When this is raised instead of a normal Exception, on_command_error() will not attach a traceback or github
     link. """
     pass
+
 
 # completely overkill error handler shamelessly ripped from MediaForge, a bot i wrote
 class ErrorHandlerCog(commands.Cog):
@@ -31,7 +33,7 @@ class ErrorHandlerCog(commands.Cog):
     async def on_command_error(self, ctx: commands.Context, commanderror: commands.CommandError):
         async def dmauthor(*args, **kwargs):
             try:
-                return await ctx.reply(*args, **kwargs)
+                return await ctx.author.send(*args, **kwargs)
             except discord.Forbidden:
                 logger.info(f"Reply to {ctx.message.id} and dm to {ctx.author.id} failed. Aborting.")
 
@@ -43,11 +45,11 @@ class ErrorHandlerCog(commands.Cog):
                                                                         embed=embed)
                 else:
                     return await ctx.reply(msg, file=file, embed=embed)
+            elif ctx.guild and not ctx.channel.permissions_for(ctx.me).send_messages:
+                logger.debug(f"No permissions to reply to {ctx.message.id}, trying to DM author.")
+                return await dmauthor(msg, file=file, embed=embed)
             else:
                 try:
-                    if ctx.guild and not ctx.channel.permissions_for(ctx.me).send_messages:
-                        logger.debug(f"No permissions to reply to {ctx.message.id}, trying to DM author.")
-                        return await dmauthor(msg, file=file, embed=embed)
                     return await ctx.reply(msg, file=file, embed=embed)
                 except discord.Forbidden:
                     logger.debug(f"Forbidden to reply to {ctx.message.id}, trying to DM author")
