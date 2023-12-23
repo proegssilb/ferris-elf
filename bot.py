@@ -143,6 +143,9 @@ if __name__ == "__main__":
         intents=intents,
         command_prefix=prefix,
         case_insensitive=True,
+        # For anyone new to dpy, these are not ulimit style, i/e, any time we want to override this for whatever
+        # reason we can, but having it off by default is safe
+
         # dpy comes with a help command, we need to remove it
         help_command=None,
         # disallows the bot from mentioning things it shouldn't, just in case
