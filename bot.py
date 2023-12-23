@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class MyBot(commands.Bot):
     __slots__ = ("queue", "db")
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue()
@@ -114,10 +114,6 @@ class Commands(commands.Cog):
     @commands.hybrid_command()
     async def info(self, ctx: commands.Context):
         await ctx.reply(embed=constants.INFO_REPLY)
-
-    @commands.hybrid_command()
-    async def error(self, ctx:commands.Context):
-        raise Exception("peepee")
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
