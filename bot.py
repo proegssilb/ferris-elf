@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class MyBot(commands.Bot):
+    __slots__ = ("queue", "db")
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue()
