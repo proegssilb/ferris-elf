@@ -90,7 +90,7 @@ class Commands(commands.Cog):
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     @commands.hybrid_command()
-    async def submit(self, ctx: commands.Context, day: commands.Range[int, 1, 25], part: typing.Literal[1, 2],
+    async def submit(self, ctx: commands.Context, day: commands.Range[int, 1, 25], part: Literal[1, 2],
                      code: discord.Attachment):
         if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
@@ -114,6 +114,10 @@ class Commands(commands.Cog):
     @commands.hybrid_command()
     async def info(self, ctx: commands.Context):
         await ctx.reply(embed=constants.INFO_REPLY)
+
+    @commands.hybrid_command()
+    async def error(self, ctx:commands.Context):
+        raise Exception("peepee")
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
@@ -143,11 +147,10 @@ if __name__ == "__main__":
         intents=intents,
         command_prefix=prefix,
         case_insensitive=True,
-        # For anyone new to dpy, these are not ulimit style, i/e, any time we want to override this for whatever
-        # reason we can, but having it off by default is safe
-
         # dpy comes with a help command, we need to remove it
         help_command=None,
+        # For anyone new to dpy, these are not ulimit style, i/e, any time we want to override this for whatever
+        # reason we can, but having it off by default is safe
         # disallows the bot from mentioning things it shouldn't, just in case
         allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=True)
     )

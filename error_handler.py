@@ -6,6 +6,7 @@ import urllib
 
 import discord
 from discord.ext import commands
+import discord.ext.commands.errors as commanderrors
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +41,20 @@ class ErrorHandlerCog(commands.Cog):
                 logger.info(f"Reply to {ctx.message.id} and dm to {ctx.author.id} failed. Aborting.")
 
         async def reply(msg, file=None, embed=None):
-            if ctx.interaction:
-                if ctx.interaction.response.is_done():
-                    return await ctx.interaction.edit_original_response(content=msg,
-                                                                        attachments=[file] if file else None,
-                                                                        embed=embed)
+            try:
+                if ctx.interaction and ctx.interaction.response.is_done():
+                    return await ctx.interaction.edit_original_response(
+                        content=msg,
+                        attachments=[file] if file else None,
+                        embed=embed
+                    )
                 else:
                     return await ctx.reply(msg, file=file, embed=embed)
-            else:
-                try:
-                    return await ctx.reply(msg, file=file, embed=embed)
-                except discord.Forbidden:
-                    logger.debug(f"Forbidden to reply to {ctx.message.id}")
-                    if ctx.guild:
-                        logger.debug("Trying to DM author")
-                        return await dmauthor(msg, file=file, embed=embed)
+            except discord.Forbidden:
+                logger.debug(f"Forbidden to reply to {ctx.message.id}")
+                if ctx.guild:
+                    logger.debug("Trying to DM author")
+                    return await dmauthor(msg, file=file, embed=embed)
 
         async def logandreply(message):
             if ctx.guild:
@@ -65,52 +65,55 @@ class ErrorHandlerCog(commands.Cog):
                         f"failed due to {message}.")
             await reply(message)
 
+        # errors in commands are wrapped in these, unwrap for error handling
+        # sometimes they're double wrapped,
+        # so a while loop to keep unwrapping until we get to the center of the tootsie pop
+        while isinstance(commanderror, (
+                commanderrors.CommandInvokeError,
+                discord.ext.commands.HybridCommandError,
+                discord.app_commands.errors.CommandInvokeError
+        )):
+            commanderror = commanderror.original
         errorstring = str(commanderror)
-        if isinstance(commanderror, discord.Forbidden):
-            await dmauthor(f"I don't have permissions to send messages in that channel.")
-            logger.info(commanderror)
-        if isinstance(commanderror, discord.ext.commands.errors.CommandNotFound):
-            # remove prefix, remove excess args
-            cmd = ctx.message.content[len(ctx.prefix):].split(' ')[0]
-            err = f"Command `{cmd}` does not exist. "
-            await logandreply(err)
-        elif isinstance(commanderror, discord.ext.commands.errors.NotOwner):
-            err = f"You are not authorized to use this command."
-            await logandreply(err)
-        elif isinstance(commanderror, discord.ext.commands.errors.UserInputError):
-            err = f"{errorstring}"
-            if ctx.command:
-                err += f" Run `help` to see how to use this command."
-            await logandreply(err)
-        elif isinstance(commanderror, discord.ext.commands.errors.NoPrivateMessage):
-            err = f"⚠️ {errorstring}"
-            await logandreply(err)
-        elif isinstance(commanderror, discord.ext.commands.errors.CheckFailure):
-            err = f"⚠️ {errorstring}"
-            await logandreply(err)
-        elif isinstance(commanderror, discord.ext.commands.errors.CommandInvokeError) and \
-                isinstance(commanderror.original, NonBugError):
-            await logandreply(f"‼️ {str(commanderror.original)[:1000]}")
-        else:
-            if isinstance(commanderror, discord.ext.commands.errors.CommandInvokeError) or \
-                    isinstance(commanderror, discord.ext.commands.HybridCommandError):
-                commanderror = commanderror.original
-            logger.error(commanderror, exc_info=(type(commanderror), commanderror, commanderror.__traceback__))
-            desc = "Please report this error with the attached traceback file to the GitHub."
-            embed = discord.Embed(color=0xed1c24, description=desc)
-            embed.add_field(name=f"Report Issue to GitHub",
-                            value=f"[Create New Issue](https://github.com/proegssilb/ferris-elf/issues/new"
-                                  f"?title={urllib.parse.quote(str(commanderror), safe='')[:848]})\n[View Issu"
-                                  f"es](https://github.com/proegssilb/ferris-elf/issues)")
-            with io.BytesIO() as buf:
-                if ctx.interaction:
-                    command = f"/{ctx.command} {ctx.kwargs}"
-                else:
-                    command = ctx.message.content
-                trheader = f"DATETIME:{datetime.datetime.now()}\nCOMMAND:{command}\nTRACEBACK:\n"
-                buf.write(bytes(trheader + ''.join(
-                    traceback.format_exception(commanderror)), encoding='utf8'))
-                buf.seek(0)
-                errtxt = (f"`{get_full_class_name(commanderror)}: "
-                          f"{errorstring}`")[:2000]
-                await reply(errtxt, file=discord.File(buf, filename="traceback.txt"), embed=embed)
+        match commanderror:
+            case discord.Forbidden():
+                await dmauthor(f"I don't have permissions to send messages in that channel.")
+                logger.info(commanderror)
+            case commanderrors.CommandNotFound():
+                # remove prefix, remove excess args
+                cmd = ctx.message.content[len(ctx.prefix):].split(' ')[0]
+                err = f"Command `{cmd}` does not exist. "
+                await logandreply(err)
+            case commanderrors.NotOwner():
+                err = f"You are not authorized to use this command."
+                await logandreply(err)
+            case commanderrors.UserInputError():
+                err = f"{errorstring}"
+                if ctx.command:
+                    err += f" Run `help` to see how to use this command."
+                await logandreply(err)
+            case commanderrors.NoPrivateMessage() | commanderrors.CheckFailure():
+                err = f"⚠️ {errorstring}"
+                await logandreply(err)
+            case NonBugError():
+                await logandreply(f"‼️ {str(commanderror)[:1000]}")
+            case _:
+                logger.error(commanderror, exc_info=(type(commanderror), commanderror, commanderror.__traceback__))
+                desc = "Please report this error with the attached traceback file to the GitHub."
+                embed = discord.Embed(color=0xed1c24, description=desc)
+                embed.add_field(name=f"Report Issue to GitHub",
+                                value=f"[Create New Issue](https://github.com/proegssilb/ferris-elf/issues/new"
+                                      f"?title={urllib.parse.quote(str(commanderror), safe='')[:848]})\n[View Issu"
+                                      f"es](https://github.com/proegssilb/ferris-elf/issues)")
+                with io.BytesIO() as buf:
+                    if ctx.interaction:
+                        command = f"/{ctx.command} {ctx.kwargs}"
+                    else:
+                        command = ctx.message.content
+                    trheader = f"DATETIME:{datetime.datetime.now()}\nCOMMAND:{command}\nTRACEBACK:\n"
+                    buf.write(bytes(trheader + ''.join(
+                        traceback.format_exception(commanderror)), encoding='utf8'))
+                    buf.seek(0)
+                    errtxt = (f"`{get_full_class_name(commanderror)}: "
+                              f"{errorstring}`")[:2000]
+                    await reply(errtxt, file=discord.File(buf, filename="traceback.txt"), embed=embed)
