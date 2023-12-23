@@ -60,9 +60,8 @@ class ErrorHandlerCog(commands.Cog):
                 ch = f"channel #{ctx.channel.name} ({ctx.channel.id}) in server {ctx.guild} ({ctx.guild.id})"
             else:
                 ch = "DMs"
-            logger.info(f"Command '{ctx.message.content}' by "
-                        f"@{ctx.message.author.name}#{ctx.message.author.discriminator} ({ctx.message.author.id}) "
-                        f"in {ch} failed due to {message}.")
+            logger.info(f"Command '{ctx.message.content}' by @{ctx.message.author} ({ctx.message.author.id}) in {ch} "
+                        f"failed due to {message}.")
             await reply(message)
 
         errorstring = str(commanderror)
