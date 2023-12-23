@@ -19,6 +19,7 @@ def get_full_class_name(obj):
     return klass.__module__ + '.' + klass.__qualname__
 
 
+# TODO: maybe change name?
 class NonBugError(Exception):
     """When this is raised instead of a normal Exception, on_command_error() will not attach a traceback or github
     link. """
