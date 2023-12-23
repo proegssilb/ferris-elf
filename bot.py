@@ -45,6 +45,8 @@ class MyBot(commands.Bot):
 
 # if i don't use a cog, the functions would need to be in __name__ == __main__
 class Commands(commands.Cog):
+    __slots__ = ("bot",)
+
     def __init__(self, sbot: MyBot):
         self.bot = sbot
 
