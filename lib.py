@@ -1,35 +1,36 @@
 import asyncio
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import functools
+import io
 import json
 import logging
+import os
 import pathlib
 import shutil
-from sqlite3 import Connection, Cursor
 import statistics as stats
 import tempfile
+import traceback
+from dataclasses import dataclass
+from datetime import datetime
+from sqlite3 import Cursor
 from typing import Optional, Tuple
-import os
 from zoneinfo import ZoneInfo
 
 import discord
 import docker
-from database import Database
-from messages import SubmitMessage
+from discord.ext import commands
 
 from config import settings
+from database import Database
+from error_handler import get_full_class_name
 
 doc = docker.from_env()
-
 
 logger = logging.getLogger(__name__)
 
 
-async def benchmark(submit_msg: SubmitMessage):
+async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
     """Run the entire benchmark process, end-to-end."""
-    msg, day, code, part = submit_msg.msg, submit_msg.day, submit_msg.code, submit_msg.part
-    op_name, op_id = msg.author.name, msg.author.id
+    op_name, op_id = ctx.author.name, ctx.author.id
 
     try:
         db = Database().get()
@@ -39,7 +40,7 @@ async def benchmark(submit_msg: SubmitMessage):
             populate_tmp_dir(tmpdir, code)
             if not await build_code(op_name, op_id, tmpdir):
                 # This reply is not good UX, but it's better than silence.
-                await msg.reply("Build failed.")
+                await ctx.reply("Build failed.")
                 return
             answers_map = load_answers(cur, day, part)
             for in_file in get_input_files(day):
@@ -48,34 +49,41 @@ async def benchmark(submit_msg: SubmitMessage):
                 result_lst = await run_code(op_name, op_id, tmpdir, in_file)
                 result = process_run_result(in_file, answers_map, result_lst)
                 results.append(result)
-            
+
             if len(results) > 0:
                 save_results(cur, op_id, day, part, code, results)
                 db.commit()
-            
+
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
             median = stats.mean([r.median for r in verified_results])
             average = stats.mean([r.average for r in verified_results])
-            await msg.reply(
+            await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
                     description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
-                    )
                 )
+            )
         else:
             median = stats.mean([r.median for r in results])
             average = stats.mean([r.average for r in results])
-            await msg.reply(
+            await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
                     description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
                 )
             )
 
-    except Exception:
-        logger.exception("Unhandled exception while benchmarking.")
-        await msg.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
+    except Exception as e:
+        logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
+        await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
+        # with io.BytesIO() as buf:
+        #     buf.write(bytes(''.join(
+        #         traceback.format_exception(e)), encoding='utf8'))
+        #     buf.seek(0)
+        #     errtxt = (f"Unhandled exception while benchmarking day {day}, part {part}: `{get_full_class_name(e)}`: "
+        #               f"`{e}`")[:2000]
+        #     await ctx.reply(errtxt, file=discord.File(buf, filename="traceback.txt"))
 
 
 def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
@@ -94,6 +102,7 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
     code_path = os.path.join(tmp_dir, "src", "code.rs")
     with open(code_path, "wb") as code_file:
         code_file.write(solution_code)
+
 
 async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
     """
@@ -121,12 +130,13 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         logger.exception("Error in docker while building code")
         return False
 
+
 def load_answers(cursor: Cursor, day: int, part: int):
     """Load the expected answers for each input file."""
     rows = cursor.execute(
-            "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
-            (day, part),
-        )
+        "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
+        (day, part),
+    )
 
     answer_map = {}
     for r in rows:
@@ -135,12 +145,14 @@ def load_answers(cursor: Cursor, day: int, part: int):
 
     return answer_map
 
+
 def get_input_files(day: int) -> list[str]:
     """
     List all the input files that exist for the current day.
     """
     day_path = get_input_dir_for_day(day)
     return [f for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))]
+
 
 def load_input(tmp_dir: str, day: int, file_name: str):
     """
@@ -165,6 +177,7 @@ def load_input(tmp_dir: str, day: int, file_name: str):
 
     # Step 2: Copy the appropriate file.
     shutil.copy(os.path.join(day_path, file_name), container_inputs_path)
+
 
 async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str) -> Optional[list[str]]:
     """
@@ -205,6 +218,7 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
         logger.exception("Error in docker while running code")
         return None
 
+
 @dataclass(slots=True)
 class RunResult:
     """Dataclass holding summary of a benchmarking run."""
@@ -217,10 +231,12 @@ class RunResult:
     high_bound: Optional[float]
     low_bound: Optional[float]
 
+
 def process_run_result(in_file, answers_map, result_lst) -> RunResult:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
     # `result` should be a dataclass, not a dict. Another time.
-    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, high_bound=None, low_bound=None)
+    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, high_bound=None,
+                       low_bound=None)
     for blob in result_lst:
         reason = blob.get("reason", None)
         if reason is None:
@@ -235,23 +251,27 @@ def process_run_result(in_file, answers_map, result_lst) -> RunResult:
         elif reason == "benchmark-complete":
             result.typical = blob["typical"]["estimate"]
             result.average = blob["mean"]["estimate"]
-            result.median= blob["median"]["estimate"]
+            result.median = blob["median"]["estimate"]
             result.high_bound = blob["typical"]["upper_bound"]
             result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
     return result
 
-def save_results(cur: Cursor, author_id: int, day: int, part:int, code: bytes, results):
+
+def save_results(cur: Cursor, author_id: int, day: int, part: int, code: bytes, results):
     """
     Save the benchmark run results to the DB.
     """
 
     str_code = code.decode()
-    db_results = [(str(author_id), str_code, day, part, r.median, int(r.answer) if isinstance(r.answer, int) or r.answer.isdigit() else None, r.answer) for r in results]
+    db_results = [(str(author_id), str_code, day, part, r.median,
+                   int(r.answer) if isinstance(r.answer, int) or r.answer.isdigit() else None, r.answer) for r in
+                  results]
 
     query = "INSERT INTO runs(user, code, day, part, time, answer, answer2) VALUES (?, ?, ?, ?, ?, ?, ?)"
 
     cur.executemany(query, db_results)
+
 
 def ns(v) -> str:
     """Format number of nanoseconds for display."""
@@ -262,6 +282,7 @@ def ns(v) -> str:
     if v > 1e3:
         return f"{v / 1e3:.2f}µs"
     return f"{v:.0f}ns"
+
 
 def get_best_times(day) -> Tuple[list[Tuple[int, str]], list[Tuple[int, str]]]:
     """
@@ -297,6 +318,7 @@ def year() -> int:
     """Return the current year, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     return stamp.year
+
 
 def today() -> int:
     """Return the current day, as AOC code should understand it."""
