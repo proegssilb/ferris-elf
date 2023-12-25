@@ -17,6 +17,12 @@ settings = Dynaconf(
         Validator("discord.bot_token", must_exist=True),
         Validator("discord.owner_id", must_exist=True, cast=int),
         Validator("db.filename", must_exist=True),
+        Validator("discord.support_info", must_exist=True),
+        Validator("discord.rust_version_info", must_exist=True),
+        Validator("discord.hw_info", must_exist=True),
+        Validator("aoc.inputs_dir", must_exist=True),
+        Validator("docker.container_ref", must_exist=True),
+        Validator("aoc_auth.tokens", must_exist=True, len_min=1),
         ],
 )
 
