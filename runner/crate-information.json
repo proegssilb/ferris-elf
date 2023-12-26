@@ -25,6 +25,11 @@
     "id": "allocator_api2"
   },
   {
+    "name": "anes",
+    "version": "0.1.6",
+    "id": "anes"
+  },
+  {
     "name": "ansi_term",
     "version": "0.12.1",
     "id": "ansi_term"
@@ -63,6 +68,21 @@
     "name": "arc-swap",
     "version": "1.6.0",
     "id": "arc_swap"
+  },
+  {
+    "name": "arrayvec",
+    "version": "0.7.4",
+    "id": "arrayvec"
+  },
+  {
+    "name": "ascii",
+    "version": "1.1.0",
+    "id": "ascii"
+  },
+  {
+    "name": "async-recursion",
+    "version": "1.0.5",
+    "id": "async_recursion"
   },
   {
     "name": "async-trait",
@@ -120,9 +140,19 @@
     "id": "bitflags_1_3_2"
   },
   {
+    "name": "bitvec",
+    "version": "1.0.1",
+    "id": "bitvec"
+  },
+  {
     "name": "block-buffer",
     "version": "0.10.4",
     "id": "block_buffer"
+  },
+  {
+    "name": "btoi",
+    "version": "0.4.3",
+    "id": "btoi"
   },
   {
     "name": "bytemuck",
@@ -150,6 +180,11 @@
     "id": "bytes_0_4_12"
   },
   {
+    "name": "cast",
+    "version": "0.3.0",
+    "id": "cast"
+  },
+  {
     "name": "cc",
     "version": "1.0.83",
     "id": "cc"
@@ -163,6 +198,21 @@
     "name": "chrono",
     "version": "0.4.31",
     "id": "chrono"
+  },
+  {
+    "name": "ciborium",
+    "version": "0.2.1",
+    "id": "ciborium"
+  },
+  {
+    "name": "ciborium-io",
+    "version": "0.2.1",
+    "id": "ciborium_io"
+  },
+  {
+    "name": "ciborium-ll",
+    "version": "0.2.1",
+    "id": "ciborium_ll"
   },
   {
     "name": "clap",
@@ -210,6 +260,11 @@
     "id": "cookie_store"
   },
   {
+    "name": "cpp_demangle",
+    "version": "0.4.3",
+    "id": "cpp_demangle"
+  },
+  {
     "name": "cpufeatures",
     "version": "0.2.11",
     "id": "cpufeatures"
@@ -218,6 +273,16 @@
     "name": "crc32fast",
     "version": "1.3.2",
     "id": "crc32fast"
+  },
+  {
+    "name": "criterion",
+    "version": "0.5.1",
+    "id": "criterion"
+  },
+  {
+    "name": "criterion-plot",
+    "version": "0.5.0",
+    "id": "criterion_plot"
   },
   {
     "name": "crossbeam",
@@ -265,6 +330,11 @@
     "id": "csv_core"
   },
   {
+    "name": "dashmap",
+    "version": "5.5.3",
+    "id": "dashmap"
+  },
+  {
     "name": "data-encoding",
     "version": "2.5.0",
     "id": "data_encoding"
@@ -273,6 +343,11 @@
     "name": "new_debug_unreachable",
     "version": "1.0.4",
     "id": "debug_unreachable"
+  },
+  {
+    "name": "debugid",
+    "version": "0.8.0",
+    "id": "debugid"
   },
   {
     "name": "deranged",
@@ -365,6 +440,11 @@
     "id": "filetime"
   },
   {
+    "name": "findshlibs",
+    "version": "0.10.2",
+    "id": "findshlibs"
+  },
+  {
     "name": "finl_unicode",
     "version": "1.2.0",
     "id": "finl_unicode"
@@ -403,6 +483,11 @@
     "name": "form_urlencoded",
     "version": "1.2.1",
     "id": "form_urlencoded"
+  },
+  {
+    "name": "funty",
+    "version": "2.0.0",
+    "id": "funty"
   },
   {
     "name": "futf",
@@ -503,6 +588,11 @@
     "name": "half",
     "version": "2.2.1",
     "id": "half"
+  },
+  {
+    "name": "half",
+    "version": "1.8.2",
+    "id": "half_1_8_2"
   },
   {
     "name": "hashbrown",
@@ -640,6 +730,11 @@
     "id": "itertools"
   },
   {
+    "name": "itertools",
+    "version": "0.10.5",
+    "id": "itertools_0_10_5"
+  },
+  {
     "name": "itoa",
     "version": "1.0.10",
     "id": "itoa"
@@ -745,6 +840,11 @@
     "id": "memmap"
   },
   {
+    "name": "memmap2",
+    "version": "0.9.3",
+    "id": "memmap2"
+  },
+  {
     "name": "memoffset",
     "version": "0.9.0",
     "id": "memoffset"
@@ -793,6 +893,11 @@
     "name": "ndarray",
     "version": "0.15.6",
     "id": "ndarray"
+  },
+  {
+    "name": "nix",
+    "version": "0.26.4",
+    "id": "nix"
   },
   {
     "name": "nom",
@@ -850,6 +955,11 @@
     "id": "once_cell"
   },
   {
+    "name": "oorandom",
+    "version": "11.1.3",
+    "id": "oorandom"
+  },
+  {
     "name": "openssl",
     "version": "0.10.61",
     "id": "openssl"
@@ -883,6 +993,11 @@
     "name": "parking_lot_core",
     "version": "0.9.9",
     "id": "parking_lot_core"
+  },
+  {
+    "name": "parse",
+    "version": "0.1.2",
+    "id": "parse"
   },
   {
     "name": "paste",
@@ -955,6 +1070,21 @@
     "id": "pkg_config"
   },
   {
+    "name": "plotters",
+    "version": "0.3.5",
+    "id": "plotters"
+  },
+  {
+    "name": "plotters-backend",
+    "version": "0.3.5",
+    "id": "plotters_backend"
+  },
+  {
+    "name": "plotters-svg",
+    "version": "0.3.5",
+    "id": "plotters_svg"
+  },
+  {
     "name": "png",
     "version": "0.17.10",
     "id": "png"
@@ -978,6 +1108,11 @@
     "name": "powerfmt",
     "version": "0.2.0",
     "id": "powerfmt"
+  },
+  {
+    "name": "pprof",
+    "version": "0.13.0",
+    "id": "pprof"
   },
   {
     "name": "ppv-lite86",
@@ -1013,6 +1148,11 @@
     "name": "quote",
     "version": "1.0.33",
     "id": "quote"
+  },
+  {
+    "name": "radium",
+    "version": "0.7.0",
+    "id": "radium"
   },
   {
     "name": "rand",
@@ -1215,6 +1355,11 @@
     "id": "spin"
   },
   {
+    "name": "stable_deref_trait",
+    "version": "1.2.0",
+    "id": "stable_deref_trait"
+  },
+  {
     "name": "string_cache",
     "version": "0.8.7",
     "id": "string_cache"
@@ -1240,6 +1385,16 @@
     "id": "subtle"
   },
   {
+    "name": "symbolic-common",
+    "version": "12.8.0",
+    "id": "symbolic_common"
+  },
+  {
+    "name": "symbolic-demangle",
+    "version": "12.8.0",
+    "id": "symbolic_demangle"
+  },
+  {
     "name": "syn",
     "version": "2.0.42",
     "id": "syn"
@@ -1248,6 +1403,11 @@
     "name": "syn",
     "version": "1.0.109",
     "id": "syn_1_0_109"
+  },
+  {
+    "name": "tap",
+    "version": "1.0.1",
+    "id": "tap"
   },
   {
     "name": "tar",
@@ -1323,6 +1483,11 @@
     "name": "time-macros",
     "version": "0.2.16",
     "id": "time_macros"
+  },
+  {
+    "name": "tinytemplate",
+    "version": "1.2.1",
+    "id": "tinytemplate"
   },
   {
     "name": "tinyvec",
@@ -1523,6 +1688,11 @@
     "name": "winnow",
     "version": "0.5.30",
     "id": "winnow"
+  },
+  {
+    "name": "wyz",
+    "version": "0.5.1",
+    "id": "wyz"
   },
   {
     "name": "xattr",

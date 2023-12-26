@@ -15,7 +15,6 @@ additions = [
     "memchr",
     "arrayvec",
     "smallvec",
-    "rustc",
     "bitvec",
     "dashmap",
     "btoi",

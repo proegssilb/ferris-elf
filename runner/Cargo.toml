@@ -11,6 +11,11 @@ pprof = { version = "0.13.0", features = ["flamegraph", "criterion"] }
 name = "bench"
 harness = false
 
+[dependencies.addr2line]
+package = "addr2line"
+version = "=0.21.0"
+default-features = false
+
 [dependencies.adler]
 package = "adler"
 version = "=1.0.2"
@@ -31,6 +36,10 @@ package = "allocator-api2"
 version = "=0.2.16"
 features = ["alloc"]
 default-features = false
+
+[dependencies.anes]
+package = "anes"
+version = "=0.1.6"
 
 [dependencies.ansi_term]
 package = "ansi_term"
@@ -68,6 +77,20 @@ features = ["std"]
 [dependencies.arc_swap]
 package = "arc-swap"
 version = "=1.6.0"
+
+[dependencies.arrayvec]
+package = "arrayvec"
+version = "=0.7.4"
+features = ["std"]
+
+[dependencies.ascii]
+package = "ascii"
+version = "=1.1.0"
+features = ["alloc", "std"]
+
+[dependencies.async_recursion]
+package = "async-recursion"
+version = "=1.0.5"
 
 [dependencies.async_trait]
 package = "async-trait"
@@ -120,9 +143,19 @@ features = ["std"]
 package = "bitflags"
 version = "=1.3.2"
 
+[dependencies.bitvec]
+package = "bitvec"
+version = "=1.0.1"
+features = ["alloc", "atomic", "std"]
+
 [dependencies.block_buffer]
 package = "block-buffer"
 version = "=0.10.4"
+
+[dependencies.btoi]
+package = "btoi"
+version = "=0.4.3"
+features = ["std"]
 
 [dependencies.bytemuck]
 package = "bytemuck"
@@ -147,6 +180,10 @@ features = ["std"]
 package = "bytes"
 version = "=0.4.12"
 
+[dependencies.cast]
+package = "cast"
+version = "=0.3.0"
+
 [dependencies.cc]
 package = "cc"
 version = "=1.0.83"
@@ -159,6 +196,20 @@ version = "=1.0.0"
 package = "chrono"
 version = "=0.4.31"
 features = ["android-tzdata", "clock", "iana-time-zone", "js-sys", "oldtime", "serde", "std", "wasm-bindgen", "wasmbind", "winapi", "windows-targets"]
+
+[dependencies.ciborium]
+package = "ciborium"
+version = "=0.2.1"
+features = ["std"]
+
+[dependencies.ciborium_io]
+package = "ciborium-io"
+version = "=0.2.1"
+features = ["alloc", "std"]
+
+[dependencies.ciborium_ll]
+package = "ciborium-ll"
+version = "=0.2.1"
 
 [dependencies.clap]
 package = "clap"
@@ -201,6 +252,11 @@ features = ["percent-encode", "percent-encoding"]
 package = "cookie_store"
 version = "=0.16.2"
 
+[dependencies.cpp_demangle]
+package = "cpp_demangle"
+version = "=0.4.3"
+features = ["alloc", "std"]
+
 [dependencies.cpufeatures]
 package = "cpufeatures"
 version = "=0.2.11"
@@ -209,6 +265,15 @@ version = "=0.2.11"
 package = "crc32fast"
 version = "=1.3.2"
 features = ["std"]
+
+[dependencies.criterion]
+package = "criterion"
+version = "=0.5.1"
+features = ["cargo_bench_support", "plotters", "rayon"]
+
+[dependencies.criterion_plot]
+package = "criterion-plot"
+version = "=0.5.0"
 
 [dependencies.crossbeam]
 package = "crossbeam"
@@ -254,6 +319,10 @@ version = "=1.3.0"
 package = "csv-core"
 version = "=0.1.11"
 
+[dependencies.dashmap]
+package = "dashmap"
+version = "=5.5.3"
+
 [dependencies.data_encoding]
 package = "data-encoding"
 version = "=2.5.0"
@@ -262,6 +331,10 @@ features = ["alloc", "std"]
 [dependencies.debug_unreachable]
 package = "new_debug_unreachable"
 version = "=1.0.4"
+
+[dependencies.debugid]
+package = "debugid"
+version = "=0.8.0"
 
 [dependencies.deranged]
 package = "deranged"
@@ -348,6 +421,10 @@ version = "=0.3.1"
 package = "filetime"
 version = "=0.2.23"
 
+[dependencies.findshlibs]
+package = "findshlibs"
+version = "=0.10.2"
+
 [dependencies.finl_unicode]
 package = "finl_unicode"
 version = "=1.2.0"
@@ -385,6 +462,11 @@ version = "=0.1.1"
 package = "form_urlencoded"
 version = "=1.2.1"
 features = ["alloc", "std"]
+
+[dependencies.funty]
+package = "funty"
+version = "=2.0.0"
+default-features = false
 
 [dependencies.futf]
 package = "futf"
@@ -482,6 +564,10 @@ version = "=0.3.22"
 package = "half"
 version = "=2.2.1"
 features = ["alloc", "std"]
+
+[dependencies.half_1_8_2]
+package = "half"
+version = "=1.8.2"
 
 [dependencies.hashbrown]
 package = "hashbrown"
@@ -606,6 +692,11 @@ package = "itertools"
 version = "=0.12.0"
 features = ["use_alloc", "use_std"]
 
+[dependencies.itertools_0_10_5]
+package = "itertools"
+version = "=0.10.5"
+features = ["use_alloc", "use_std"]
+
 [dependencies.itoa]
 package = "itoa"
 version = "=1.0.10"
@@ -702,6 +793,10 @@ features = ["alloc", "std"]
 package = "memmap"
 version = "=0.7.0"
 
+[dependencies.memmap2]
+package = "memmap2"
+version = "=0.9.3"
+
 [dependencies.memoffset]
 package = "memoffset"
 version = "=0.9.0"
@@ -748,6 +843,12 @@ version = "=0.2.11"
 package = "ndarray"
 version = "=0.15.6"
 features = ["std"]
+
+[dependencies.nix]
+package = "nix"
+version = "=0.26.4"
+features = ["fs", "process", "signal"]
+default-features = false
 
 [dependencies.nom]
 package = "nom"
@@ -808,6 +909,10 @@ package = "once_cell"
 version = "=1.19.0"
 features = ["alloc", "race", "std", "unstable"]
 
+[dependencies.oorandom]
+package = "oorandom"
+version = "=11.1.3"
+
 [dependencies.openssl]
 package = "openssl"
 version = "=0.10.61"
@@ -836,6 +941,10 @@ version = "=0.12.1"
 [dependencies.parking_lot_core]
 package = "parking_lot_core"
 version = "=0.9.9"
+
+[dependencies.parse]
+package = "parse"
+version = "=0.1.2"
 
 [dependencies.paste]
 package = "paste"
@@ -900,6 +1009,20 @@ version = "=0.1.0"
 package = "pkg-config"
 version = "=0.3.28"
 
+[dependencies.plotters]
+package = "plotters"
+version = "=0.3.5"
+features = ["area_series", "line_series", "plotters-svg", "svg_backend"]
+default-features = false
+
+[dependencies.plotters_backend]
+package = "plotters-backend"
+version = "=0.3.5"
+
+[dependencies.plotters_svg]
+package = "plotters-svg"
+version = "=0.3.5"
+
 [dependencies.png]
 package = "png"
 version = "=0.17.10"
@@ -920,6 +1043,11 @@ version = "=0.2.6"
 package = "powerfmt"
 version = "=0.2.0"
 default-features = false
+
+[dependencies.pprof]
+package = "pprof"
+version = "=0.13.0"
+features = ["cpp"]
 
 [dependencies.ppv_lite86]
 package = "ppv-lite86"
@@ -953,6 +1081,10 @@ features = ["std"]
 package = "quote"
 version = "=1.0.33"
 features = ["proc-macro"]
+
+[dependencies.radium]
+package = "radium"
+version = "=0.7.0"
 
 [dependencies.rand]
 package = "rand"
@@ -1140,6 +1272,11 @@ package = "spin"
 version = "=0.9.8"
 features = ["barrier", "lazy", "lock_api", "lock_api_crate", "mutex", "once", "rwlock", "spin_mutex"]
 
+[dependencies.stable_deref_trait]
+package = "stable_deref_trait"
+version = "=1.2.0"
+features = ["alloc", "std"]
+
 [dependencies.string_cache]
 package = "string_cache"
 version = "=0.8.7"
@@ -1162,6 +1299,16 @@ package = "subtle"
 version = "=2.5.0"
 default-features = false
 
+[dependencies.symbolic_common]
+package = "symbolic-common"
+version = "=12.8.0"
+
+[dependencies.symbolic_demangle]
+package = "symbolic-demangle"
+version = "=12.8.0"
+features = ["cpp", "cpp_demangle", "rust", "rustc-demangle"]
+default-features = false
+
 [dependencies.syn]
 package = "syn"
 version = "=2.0.42"
@@ -1171,6 +1318,10 @@ features = ["clone-impls", "derive", "extra-traits", "fold", "full", "parsing", 
 package = "syn"
 version = "=1.0.109"
 features = ["clone-impls", "derive", "extra-traits", "fold", "full", "parsing", "printing", "proc-macro", "quote", "visit", "visit-mut"]
+
+[dependencies.tap]
+package = "tap"
+version = "=1.0.1"
 
 [dependencies.tar]
 package = "tar"
@@ -1235,6 +1386,10 @@ version = "=0.1.2"
 package = "time-macros"
 version = "=0.2.16"
 features = ["formatting", "parsing"]
+
+[dependencies.tinytemplate]
+package = "tinytemplate"
+version = "=1.2.1"
 
 [dependencies.tinyvec]
 package = "tinyvec"
@@ -1416,6 +1571,11 @@ package = "winnow"
 version = "=0.5.30"
 features = ["alloc", "std"]
 
+[dependencies.wyz]
+package = "wyz"
+version = "=0.5.1"
+default-features = false
+
 [dependencies.xattr]
 package = "xattr"
 version = "=1.1.3"
@@ -1475,6 +1635,10 @@ version = "=0.2.16"
 features = ["alloc"]
 default-features = false
 
+[build_dependencies.anes]
+package = "anes"
+version = "=0.1.6"
+
 [build_dependencies.ansi_term]
 package = "ansi_term"
 version = "=0.12.1"
@@ -1511,6 +1675,20 @@ features = ["std"]
 [build_dependencies.arc_swap]
 package = "arc-swap"
 version = "=1.6.0"
+
+[build_dependencies.arrayvec]
+package = "arrayvec"
+version = "=0.7.4"
+features = ["std"]
+
+[build_dependencies.ascii]
+package = "ascii"
+version = "=1.1.0"
+features = ["alloc", "std"]
+
+[build_dependencies.async_recursion]
+package = "async-recursion"
+version = "=1.0.5"
 
 [build_dependencies.async_trait]
 package = "async-trait"
@@ -1563,9 +1741,19 @@ features = ["std"]
 package = "bitflags"
 version = "=1.3.2"
 
+[build_dependencies.bitvec]
+package = "bitvec"
+version = "=1.0.1"
+features = ["alloc", "atomic", "std"]
+
 [build_dependencies.block_buffer]
 package = "block-buffer"
 version = "=0.10.4"
+
+[build_dependencies.btoi]
+package = "btoi"
+version = "=0.4.3"
+features = ["std"]
 
 [build_dependencies.bytemuck]
 package = "bytemuck"
@@ -1590,6 +1778,10 @@ features = ["std"]
 package = "bytes"
 version = "=0.4.12"
 
+[build_dependencies.cast]
+package = "cast"
+version = "=0.3.0"
+
 [build_dependencies.cc]
 package = "cc"
 version = "=1.0.83"
@@ -1602,6 +1794,20 @@ version = "=1.0.0"
 package = "chrono"
 version = "=0.4.31"
 features = ["android-tzdata", "clock", "iana-time-zone", "js-sys", "oldtime", "serde", "std", "wasm-bindgen", "wasmbind", "winapi", "windows-targets"]
+
+[build_dependencies.ciborium]
+package = "ciborium"
+version = "=0.2.1"
+features = ["std"]
+
+[build_dependencies.ciborium_io]
+package = "ciborium-io"
+version = "=0.2.1"
+features = ["alloc", "std"]
+
+[build_dependencies.ciborium_ll]
+package = "ciborium-ll"
+version = "=0.2.1"
 
 [build_dependencies.clap]
 package = "clap"
@@ -1644,6 +1850,11 @@ features = ["percent-encode", "percent-encoding"]
 package = "cookie_store"
 version = "=0.16.2"
 
+[build_dependencies.cpp_demangle]
+package = "cpp_demangle"
+version = "=0.4.3"
+features = ["alloc", "std"]
+
 [build_dependencies.cpufeatures]
 package = "cpufeatures"
 version = "=0.2.11"
@@ -1652,6 +1863,15 @@ version = "=0.2.11"
 package = "crc32fast"
 version = "=1.3.2"
 features = ["std"]
+
+[build_dependencies.criterion]
+package = "criterion"
+version = "=0.5.1"
+features = ["cargo_bench_support", "plotters", "rayon"]
+
+[build_dependencies.criterion_plot]
+package = "criterion-plot"
+version = "=0.5.0"
 
 [build_dependencies.crossbeam]
 package = "crossbeam"
@@ -1697,6 +1917,10 @@ version = "=1.3.0"
 package = "csv-core"
 version = "=0.1.11"
 
+[build_dependencies.dashmap]
+package = "dashmap"
+version = "=5.5.3"
+
 [build_dependencies.data_encoding]
 package = "data-encoding"
 version = "=2.5.0"
@@ -1705,6 +1929,10 @@ features = ["alloc", "std"]
 [build_dependencies.debug_unreachable]
 package = "new_debug_unreachable"
 version = "=1.0.4"
+
+[build_dependencies.debugid]
+package = "debugid"
+version = "=0.8.0"
 
 [build_dependencies.deranged]
 package = "deranged"
@@ -1791,6 +2019,10 @@ version = "=0.3.1"
 package = "filetime"
 version = "=0.2.23"
 
+[build_dependencies.findshlibs]
+package = "findshlibs"
+version = "=0.10.2"
+
 [build_dependencies.finl_unicode]
 package = "finl_unicode"
 version = "=1.2.0"
@@ -1828,6 +2060,11 @@ version = "=0.1.1"
 package = "form_urlencoded"
 version = "=1.2.1"
 features = ["alloc", "std"]
+
+[build_dependencies.funty]
+package = "funty"
+version = "=2.0.0"
+default-features = false
 
 [build_dependencies.futf]
 package = "futf"
@@ -1925,6 +2162,10 @@ version = "=0.3.22"
 package = "half"
 version = "=2.2.1"
 features = ["alloc", "std"]
+
+[build_dependencies.half_1_8_2]
+package = "half"
+version = "=1.8.2"
 
 [build_dependencies.hashbrown]
 package = "hashbrown"
@@ -2049,6 +2290,11 @@ package = "itertools"
 version = "=0.12.0"
 features = ["use_alloc", "use_std"]
 
+[build_dependencies.itertools_0_10_5]
+package = "itertools"
+version = "=0.10.5"
+features = ["use_alloc", "use_std"]
+
 [build_dependencies.itoa]
 package = "itoa"
 version = "=1.0.10"
@@ -2145,6 +2391,10 @@ features = ["alloc", "std"]
 package = "memmap"
 version = "=0.7.0"
 
+[build_dependencies.memmap2]
+package = "memmap2"
+version = "=0.9.3"
+
 [build_dependencies.memoffset]
 package = "memoffset"
 version = "=0.9.0"
@@ -2191,6 +2441,12 @@ version = "=0.2.11"
 package = "ndarray"
 version = "=0.15.6"
 features = ["std"]
+
+[build_dependencies.nix]
+package = "nix"
+version = "=0.26.4"
+features = ["fs", "process", "signal"]
+default-features = false
 
 [build_dependencies.nom]
 package = "nom"
@@ -2251,6 +2507,10 @@ package = "once_cell"
 version = "=1.19.0"
 features = ["alloc", "race", "std", "unstable"]
 
+[build_dependencies.oorandom]
+package = "oorandom"
+version = "=11.1.3"
+
 [build_dependencies.openssl]
 package = "openssl"
 version = "=0.10.61"
@@ -2279,6 +2539,10 @@ version = "=0.12.1"
 [build_dependencies.parking_lot_core]
 package = "parking_lot_core"
 version = "=0.9.9"
+
+[build_dependencies.parse]
+package = "parse"
+version = "=0.1.2"
 
 [build_dependencies.paste]
 package = "paste"
@@ -2343,6 +2607,20 @@ version = "=0.1.0"
 package = "pkg-config"
 version = "=0.3.28"
 
+[build_dependencies.plotters]
+package = "plotters"
+version = "=0.3.5"
+features = ["area_series", "line_series", "plotters-svg", "svg_backend"]
+default-features = false
+
+[build_dependencies.plotters_backend]
+package = "plotters-backend"
+version = "=0.3.5"
+
+[build_dependencies.plotters_svg]
+package = "plotters-svg"
+version = "=0.3.5"
+
 [build_dependencies.png]
 package = "png"
 version = "=0.17.10"
@@ -2363,6 +2641,11 @@ version = "=0.2.6"
 package = "powerfmt"
 version = "=0.2.0"
 default-features = false
+
+[build_dependencies.pprof]
+package = "pprof"
+version = "=0.13.0"
+features = ["cpp"]
 
 [build_dependencies.ppv_lite86]
 package = "ppv-lite86"
@@ -2396,6 +2679,10 @@ features = ["std"]
 package = "quote"
 version = "=1.0.33"
 features = ["proc-macro"]
+
+[build_dependencies.radium]
+package = "radium"
+version = "=0.7.0"
 
 [build_dependencies.rand]
 package = "rand"
@@ -2583,6 +2870,11 @@ package = "spin"
 version = "=0.9.8"
 features = ["barrier", "lazy", "lock_api", "lock_api_crate", "mutex", "once", "rwlock", "spin_mutex"]
 
+[build_dependencies.stable_deref_trait]
+package = "stable_deref_trait"
+version = "=1.2.0"
+features = ["alloc", "std"]
+
 [build_dependencies.string_cache]
 package = "string_cache"
 version = "=0.8.7"
@@ -2605,6 +2897,16 @@ package = "subtle"
 version = "=2.5.0"
 default-features = false
 
+[build_dependencies.symbolic_common]
+package = "symbolic-common"
+version = "=12.8.0"
+
+[build_dependencies.symbolic_demangle]
+package = "symbolic-demangle"
+version = "=12.8.0"
+features = ["cpp", "cpp_demangle", "rust", "rustc-demangle"]
+default-features = false
+
 [build_dependencies.syn]
 package = "syn"
 version = "=2.0.42"
@@ -2614,6 +2916,10 @@ features = ["clone-impls", "derive", "extra-traits", "fold", "full", "parsing", 
 package = "syn"
 version = "=1.0.109"
 features = ["clone-impls", "derive", "extra-traits", "fold", "full", "parsing", "printing", "proc-macro", "quote", "visit", "visit-mut"]
+
+[build_dependencies.tap]
+package = "tap"
+version = "=1.0.1"
 
 [build_dependencies.tar]
 package = "tar"
@@ -2678,6 +2984,10 @@ version = "=0.1.2"
 package = "time-macros"
 version = "=0.2.16"
 features = ["formatting", "parsing"]
+
+[build_dependencies.tinytemplate]
+package = "tinytemplate"
+version = "=1.2.1"
 
 [build_dependencies.tinyvec]
 package = "tinyvec"
@@ -2858,6 +3168,11 @@ default-features = false
 package = "winnow"
 version = "=0.5.30"
 features = ["alloc", "std"]
+
+[build_dependencies.wyz]
+package = "wyz"
+version = "=0.5.1"
+default-features = false
 
 [build_dependencies.xattr]
 package = "xattr"
