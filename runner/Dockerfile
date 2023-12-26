@@ -1,12 +1,16 @@
 FROM rust:latest
-RUN rustup install nightly
+VOLUME /app/src
+VOLUME /app/benches
+VOLUME /app/inputs
+VOLUME /app/target
+WORKDIR /app
 # RUN rustup default nightly
-# We need this to get JSON output from cargo criterion
-RUN cargo install cargo-criterion
 ENV RUSTFLAGS="-C target-cpu=native"
 ENV CARGO_TERM_COLOR="never"
 ENV TERM="dumb"
-VOLUME /app
-WORKDIR /app
+
+COPY Cargo.lock Cargo.toml crate-information.json crate-modifications.toml /app/
+RUN rustup install nightly && cargo install cargo-criterion && cargo vendor && mkdir -p /app/.cargo/
+COPY extra-cargo.toml /app/.cargo/config.toml
 
 CMD ["echo ERROR"]

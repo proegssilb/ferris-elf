@@ -20,4 +20,5 @@ additions = [
     "btoi",
     "nom",
     "ascii",
+    "windows-targets",
 ]

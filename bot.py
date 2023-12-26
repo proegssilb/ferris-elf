@@ -32,7 +32,7 @@ class MyBot(commands.Bot):
         )
 
     async def on_ready(self):
-        print("Logged in as", self.user)
+        logger.info("Logged in as %s", self.user)
         while True:
             try:
                 submit_msg = await self.queue.get()
@@ -94,6 +94,7 @@ class Commands(commands.Cog):
                      code: discord.Attachment):
         if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
+        await ctx.reply("Submitting...")
         logger.info(
             "Queueing submission for %s, message = [%s], queue length = %s",
             ctx.author,
@@ -102,8 +103,8 @@ class Commands(commands.Cog):
         )
         # using a tuple is probably the most readable but shut
         self.bot.queue.put_nowait((ctx, day, part, await code.read()))
-        await ctx.reply(
-            f"Your submission for day {day} part {part} has been queued. "
+        await ctx.interaction.edit_original_response(
+            content=f"Your submission for day {day} part {part} has been queued. " +
             f"There are {self.bot.queue.qsize()} submissions in the queue."
         )
 
@@ -122,7 +123,8 @@ async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(encoding="utf-8", level=logging.INFO)
+    logformat = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
+    logging.basicConfig(encoding="utf-8", level=logging.INFO, datefmt="%a, %d %b %Y %H:%M:%S %z", format=logformat)
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -150,4 +152,4 @@ if __name__ == "__main__":
         # disallows the bot from mentioning things it shouldn't, just in case
         allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=True)
     )
-    bot.run(settings.discord.bot_token)
+    bot.run(settings.discord.bot_token, log_handler=None)

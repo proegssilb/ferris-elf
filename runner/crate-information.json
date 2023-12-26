@@ -1685,6 +1685,16 @@
     "id": "wide"
   },
   {
+    "name": "windows-targets",
+    "version": "0.52.0",
+    "id": "windows_targets"
+  },
+  {
+    "name": "windows_x86_64_gnu",
+    "version": "0.52.0",
+    "id": "windows_x86_64_gnu"
+  },
+  {
     "name": "winnow",
     "version": "0.5.30",
     "id": "winnow"
