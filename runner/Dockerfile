@@ -10,7 +10,7 @@ ENV CARGO_TERM_COLOR="never"
 ENV TERM="dumb"
 
 COPY Cargo.lock Cargo.toml crate-information.json crate-modifications.toml /app/
-RUN touch benches/bench.rs && touch src/lib.rs && rustup install nightly && cargo install cargo-criterion && cargo vendor && mkdir -p /app/.cargo/
+RUN mkdir -p /app/benches && mkdir -p /app/src && touch /app/benches/bench.rs && touch /app/src/lib.rs && rustup install nightly && cargo install cargo-criterion && cargo vendor && mkdir -p /app/.cargo/
 COPY extra-cargo.toml /app/.cargo/config.toml
 
 CMD ["echo ERROR"]
