@@ -27,6 +27,5 @@ jobs:
         registry: ghcr.io
         default_branch: main
         workdir: runner
-        buildoptions: "--volume ./benches/:/app/benches --volume ./src/:/app/src/"
         tags: "latest,${{ steps.dategen.outputs.docker-version }}"
         no_push: ${{ github.event_name == 'pull_request' }}
