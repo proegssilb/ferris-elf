@@ -11,7 +11,7 @@ settings = Dynaconf(
         "settings.toml",
         ".secrets.toml",
         os.path.join(CONF_DIR, "settings.toml"),
-        os.path.join("secrets.toml"),
+        os.path.join(CONF_DIR, "secrets.toml"),
     ],
     validators=[
         Validator("discord.bot_token", must_exist=True),
