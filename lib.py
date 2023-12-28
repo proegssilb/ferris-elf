@@ -126,10 +126,10 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
             stdout=True,
             mem_limit="8g",
             network_mode="none",
+            # Don't mount the inputs directory here for defense-in-depth
             volumes={
                 os.path.join(tmp_dir, "src"): {'bind': '/app/src', 'mode': 'rw'},
                 os.path.join(tmp_dir, "benches"): {'bind': '/app/benches', 'mode': 'rw'},
-                os.path.join(tmp_dir, "inputs"): {'bind': '/app/inputs', 'mode': 'rw'},
                 os.path.join(tmp_dir, "target"): {'bind': '/app/target', 'mode': 'rw'},
                 }
         ))
