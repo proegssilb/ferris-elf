@@ -12,7 +12,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from sqlite3 import Cursor
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import discord
@@ -48,7 +48,8 @@ async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
                 load_input(tmpdir, day, in_file)
                 result_lst = await run_code(op_name, op_id, tmpdir, in_file)
                 result = process_run_result(in_file, answers_map, result_lst)
-                results.append(result)
+                if result is not None:
+                    results.append(result)
 
             if len(results) > 0:
                 save_results(cur, op_id, day, part, code, results)
@@ -95,13 +96,17 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
     # Step 1: Copy all the rust files
     script_dir = os.path.dirname(__file__)
     runner_src_dir = os.path.join(script_dir, "runner")
-    ignores = shutil.ignore_patterns("*target*", "Dockerfile", "**/.gitkeep")
+    # The ignores were causing problems with building
+    # ignores = shutil.ignore_patterns("target/", "Dockerfile", "**/.gitkeep")
+    ignores = shutil.ignore_patterns()
     shutil.copytree(runner_src_dir, tmp_dir, dirs_exist_ok=True, ignore=ignores)
 
     # Step 2: Write code.
     code_path = os.path.join(tmp_dir, "src", "code.rs")
     with open(code_path, "wb") as code_file:
         code_file.write(solution_code)
+    
+    logger.debug("Contents of tmp dir: %s", os.listdir(tmp_dir))
 
 
 async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
@@ -120,8 +125,13 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
             remove=True,
             stdout=True,
             mem_limit="8g",
-            # network_mode="none", # Want no-network, but it's downloading crates. :(
-            volumes={tmp_dir: {'bind': '/app', 'mode': 'rw'}}
+            network_mode="none",
+            # Don't mount the inputs directory here for defense-in-depth
+            volumes={
+                os.path.join(tmp_dir, "src"): {'bind': '/app/src', 'mode': 'rw'},
+                os.path.join(tmp_dir, "benches"): {'bind': '/app/benches', 'mode': 'rw'},
+                os.path.join(tmp_dir, "target"): {'bind': '/app/target', 'mode': 'rw'},
+                }
         ))
         out = out.decode("utf-8")
         logger.debug("Build container output: %s", out)
@@ -191,7 +201,7 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
         out = await loop.run_in_executor(None, functools.partial(
             doc.containers.run,
             settings.docker.container_ref,
-            "timeout --kill-after=5s 60s cargo criterion --message-format=json",
+            "timeout --kill-after=15s 120s cargo criterion --message-format=json",
             environment={
                 "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
             },
@@ -199,8 +209,13 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
             stdout=True,
             stderr=True,
             mem_limit="8g",
-            # network_mode="none", # Downloading crates.
-            volumes={tmp_dir: {'bind': '/app', 'mode': 'rw'}}
+            network_mode="none",
+            volumes={
+                os.path.join(tmp_dir, "src"): {'bind': '/app/src', 'mode': 'rw'},
+                os.path.join(tmp_dir, "benches"): {'bind': '/app/benches', 'mode': 'rw'},
+                os.path.join(tmp_dir, "inputs"): {'bind': '/app/inputs', 'mode': 'rw'},
+                os.path.join(tmp_dir, "target"): {'bind': '/app/target', 'mode': 'rw'},
+                }
         ))
         out: str = out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
@@ -232,11 +247,13 @@ class RunResult:
     low_bound: Optional[float]
 
 
-def process_run_result(in_file, answers_map, result_lst) -> RunResult:
+def process_run_result(in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
-    # `result` should be a dataclass, not a dict. Another time.
-    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, high_bound=None,
-                       low_bound=None)
+    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, 
+                       high_bound=None, low_bound=None)
+    if result_lst is None:
+        logger.info("No run result due to lack of container output. Did the container error out?")
+        return None
     for blob in result_lst:
         reason = blob.get("reason", None)
         if reason is None:
