@@ -80,12 +80,14 @@ class Commands(commands.Cog):
         times1_str = await format_times(times1)
         times2_str = await format_times(times2)
         embed = discord.Embed(
-            title=f"Top 10 fastest toboggans for day {day}", color=0xE84611
+            title=f"Top 10 fastest toboggans for day {day}",
+            color=0xE84611,
         )
         if times1_str and (part is None or part == 1):
             embed.add_field(name="Part 1", value=times1_str, inline=True)
         if times2_str and (part is None or part == 2):
             embed.add_field(name="Part 2", value=times2_str, inline=True)
+        embed.set_footer(text=constants.LEADERBOARD_FOOTER)
         await ctx.reply(embed=embed)
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing

@@ -67,4 +67,6 @@ review this choice.
 Be kind and do not abuse :)""",
 )
 
+LEADERBOARD_FOOTER = "Need help? DM me /help or /info to get started."
+
 MAX_DAY = 25
