@@ -86,6 +86,11 @@ class Database:
 
         self._cursor.executemany(query, db_results)
 
+    def set_verified_answer(self, _year: int, day: int, part: int, session_label: str, answer: str):
+        """Set the verified answer for a specific problem, part, and input."""
+        query = """INSERT INTO solutions(key, day, part, answer2) VALUES (?, ?, ?, ?)"""
+        self._cursor.execute(query, (session_label, day, part, answer))
+
     def best_times(self, _year: int, day: int, part: int, /) -> Iterator[tuple[int, float]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
