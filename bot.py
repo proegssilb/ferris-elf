@@ -86,6 +86,7 @@ class Commands(commands.Cog):
             embed.add_field(name="Part 1", value=times1_str, inline=True)
         if times2_str and (part is None or part == 2):
             embed.add_field(name="Part 2", value=times2_str, inline=True)
+        embed.set_footer(text=constants.LEADERBOARD_FOOTER)
         await ctx.reply(embed=embed)
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
