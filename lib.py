@@ -1,6 +1,5 @@
 import asyncio
 import functools
-import io
 import json
 import logging
 import os
@@ -8,20 +7,20 @@ import pathlib
 import shutil
 import statistics as stats
 import tempfile
-import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from sqlite3 import Cursor
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
+import aiohttp as http
 import discord
 import docker
 from discord.ext import commands
 
 from config import settings
+import constants
 from database import Database
-from error_handler import get_full_class_name
 
 doc = docker.from_env()
 
@@ -47,21 +46,32 @@ async def benchmark(
                 return
 
             with Database() as db:
-                # TODO dont hardcode 2023
-                answers_map = db.load_answers(2023, day, part)
+                async with http.ClientSession() as session:
+                    answers_map = db.load_answers(year(), day, part)
 
-            for in_file in get_input_files(day):
-                logger.info("Processing file: %s", in_file)
-                load_input(tmpdir, day, in_file)
-                result_lst = await run_code(op_name, op_id, tmpdir, in_file)
-                result = process_run_result(in_file, answers_map, result_lst)
-                if result is not None:
-                    results.append(result)
+                    for in_file in get_input_files(day):
+                        session_label = os.path.splitext(in_file)[0]
+                        logger.info("Processing file: %s", in_file)
+                        load_input(tmpdir, day, in_file)
+                        result_lst = await run_code(op_name, op_id, tmpdir, in_file)
+                        result = process_run_result(session_label, answers_map, result_lst)
+
+                        if result is not None and in_file not in answers_map.keys():
+                            if await try_answer(
+                                session, day, part, session_label, result.answer, answers_map
+                            ):
+                                result.verified = True
+                                db.set_verified_answer(year(), day, part, in_file, str(result.answer))
+                            else:
+                                # TODO: Take more stringent action.
+                                result.verified = False
+
+                        if result is not None and result.median is not None and result.average is not None:
+                            results.append(result)
 
             if results:
                 with Database() as db:
-                    # TODO dont hardcode 2023
-                    db.save_results(op_id, 2023, day, part, code, results)
+                    db.save_results(op_id, year(), day, part, code, results)
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
@@ -83,7 +93,7 @@ async def benchmark(
                 )
             )
 
-    except Exception as e:
+    except Exception as _e:
         logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
         await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
         # with io.BytesIO() as buf:
@@ -152,7 +162,7 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-def load_answers(cursor: Cursor, day: int, part: int):
+def load_answers(cursor: Cursor, day: int, part: int) -> dict:
     """Load the expected answers for each input file."""
     rows = cursor.execute(
         "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
@@ -202,7 +212,7 @@ def load_input(tmp_dir: str, day: int, file_name: str):
 
 async def run_code(
     author_name: str, author_id: int, tmp_dir: str, in_file: str
-) -> Optional[list[str]]:
+) -> Optional[list[dict[str, Any]]]:
     """
     Designed to be used with a basic rust container. Given the code already
     built in tmp_dir as a volume, run the benchmark itself.
@@ -267,7 +277,7 @@ class RunResult:
 
 
 def process_run_result(
-    in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
+    session_label: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
 ) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
     result = RunResult(
@@ -289,7 +299,7 @@ def process_run_result(
         elif reason == "ferris-answer":
             answer = blob["answer"]
             result.answer = answer
-            if answers_map.get(in_file, None) == answer:
+            if answers_map.get(session_label, None) == answer:
                 result.verified = True
             else:
                 result.verified = False
@@ -301,6 +311,36 @@ def process_run_result(
             result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
     return result
+
+
+async def try_answer(
+    session: http.ClientSession,
+    day: int,
+    part: int,
+    answer_key: str,
+    answer: int | str,
+    answers_map: dict,
+):
+    """Try an answer with the AOC website."""
+    current_year = year()
+    answer_url = f"https://adventofcode.com/{current_year}/day/{day}/answer"
+    payload = {
+        "level": part,
+        "answer": answer,
+    }
+
+    token = settings.aoc_auth.tokens[answer_key]
+
+    async with session.post(answer_url, data=payload, cookies={"session": token}) as response:
+        response_text = await response.text()
+        if "That's not the right answer" in response_text:
+            return False
+        elif "That's the right answer" in response_text:
+            # We have a correct answer
+            answers_map[answer_key] = answer
+            return True
+        else:
+            logger.error("Unrecognized response from AOC website:\n%s", response_text)
 
 
 def ns(v: float) -> str:
@@ -321,9 +361,8 @@ def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str
     """
 
     with Database() as db:
-        # TODO dont hardcode year
-        times1 = [(user, ns(time)) for user, time in db.best_times(2023, day, 1)]
-        times2 = [(user, ns(time)) for user, time in db.best_times(2023, day, 2)]
+        times1 = [(user, ns(time)) for user, time in db.best_times(year(), day, 1)]
+        times2 = [(user, ns(time)) for user, time in db.best_times(year(), day, 2)]
 
     return (times1, times2)
 
@@ -336,11 +375,21 @@ def get_input_dir_for_day(day: int) -> str:
 
 def year() -> int:
     """Return the current year, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return stamp.year
+    if stamp.month == 12:
+        return stamp.year
+    else:
+        return stamp.year - 1
 
 
 def today() -> int:
     """Return the current day, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return min(stamp.day, 25)
+    if stamp.month == 12:
+        return min(stamp.day, constants.MAX_DAY)
+    else:
+        return constants.MAX_DAY
