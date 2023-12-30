@@ -23,7 +23,7 @@ settings = Dynaconf(
         Validator("aoc.inputs_dir", must_exist=True),
         Validator("docker.container_ref", must_exist=True),
         Validator("aoc_auth.tokens", must_exist=True, len_min=1),
-        ],
+    ],
 )
 
 # `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
