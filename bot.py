@@ -23,13 +23,11 @@ class MyBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue()
-        self.db = Database().get()
+        # this is unusued ??
+        self.db = Database()
 
     async def setup_hook(self):
-        await asyncio.gather(
-            bot.add_cog(Commands(bot)),
-            bot.add_cog(ErrorHandlerCog(bot))
-        )
+        await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
 
     async def on_ready(self):
         logger.info("Logged in as %s", self.user)
@@ -60,8 +58,12 @@ class Commands(commands.Cog):
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
     @commands.hybrid_command(aliases=["aoc", "lb"])
-    async def best(self, ctx: commands.Context, day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
-                   part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None):
+    async def best(
+        self,
+        ctx: commands.Context,
+        day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ):
         if day is None:
             day = lib.today()
         else:
@@ -79,9 +81,7 @@ class Commands(commands.Cog):
         (times1, times2) = lib.get_best_times(day)
         times1_str = await format_times(times1)
         times2_str = await format_times(times2)
-        embed = discord.Embed(
-            title=f"Top 10 fastest toboggans for day {day}", color=0xE84611
-        )
+        embed = discord.Embed(title=f"Top 10 fastest toboggans for day {day}", color=0xE84611)
         if times1_str and (part is None or part == 1):
             embed.add_field(name="Part 1", value=times1_str, inline=True)
         if times2_str and (part is None or part == 2):
@@ -90,8 +90,13 @@ class Commands(commands.Cog):
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     @commands.hybrid_command()
-    async def submit(self, ctx: commands.Context, day: commands.Range[int, 1, 25], part: Literal[1, 2],
-                     code: discord.Attachment):
+    async def submit(
+        self,
+        ctx: commands.Context,
+        day: commands.Range[int, 1, 25],
+        part: Literal[1, 2],
+        code: discord.Attachment,
+    ):
         if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
         await ctx.reply("Submitting...")
@@ -104,8 +109,8 @@ class Commands(commands.Cog):
         # using a tuple is probably the most readable but shut
         self.bot.queue.put_nowait((ctx, day, part, await code.read()))
         await ctx.interaction.edit_original_response(
-            content=f"Your submission for day {day} part {part} has been queued. " +
-            f"There are {self.bot.queue.qsize()} submissions in the queue."
+            content=f"Your submission for day {day} part {part} has been queued. "
+            + f"There are {self.bot.queue.qsize()} submissions in the queue."
         )
 
     @commands.hybrid_command()
@@ -119,12 +124,21 @@ class Commands(commands.Cog):
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
     # TODO: guild-specific prefixes
-    return ["aoc ", "aoc", f'<@!{dbot.user.id}> ', f'<@{dbot.user.id}> ', f'<@!{dbot.user.id}>', f'<@{dbot.user.id}>']
+    return [
+        "aoc ",
+        "aoc",
+        f"<@!{dbot.user.id}> ",
+        f"<@{dbot.user.id}> ",
+        f"<@!{dbot.user.id}>",
+        f"<@{dbot.user.id}>",
+    ]
 
 
 if __name__ == "__main__":
     logformat = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
-    logging.basicConfig(encoding="utf-8", level=logging.INFO, datefmt="%a, %d %b %Y %H:%M:%S %z", format=logformat)
+    logging.basicConfig(
+        encoding="utf-8", level=logging.INFO, datefmt="%a, %d %b %Y %H:%M:%S %z", format=logformat
+    )
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -150,6 +164,8 @@ if __name__ == "__main__":
         # For anyone new to dpy, these are not ulimit style, i/e, any time we want to override this for whatever
         # reason we can, but having it off by default is safe
         # disallows the bot from mentioning things it shouldn't, just in case
-        allowed_mentions=discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=True)
+        allowed_mentions=discord.AllowedMentions(
+            everyone=False, users=True, roles=False, replied_user=True
+        ),
     )
     bot.run(settings.discord.bot_token, log_handler=None)

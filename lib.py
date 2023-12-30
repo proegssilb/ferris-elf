@@ -12,7 +12,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from sqlite3 import Cursor
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 import discord
@@ -28,13 +28,16 @@ doc = docker.from_env()
 logger = logging.getLogger(__name__)
 
 
-async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
+async def benchmark(
+    ctx: commands.Context,
+    day: int,
+    part: int,
+    code: bytes,
+):
     """Run the entire benchmark process, end-to-end."""
     op_name, op_id = ctx.author.name, ctx.author.id
 
     try:
-        db = Database().get()
-        cur = db.cursor()
         results = []
         with tempfile.TemporaryDirectory(suffix=f"-ferris-elf-{op_id}") as tmpdir:
             populate_tmp_dir(tmpdir, code)
@@ -42,7 +45,11 @@ async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
                 # This reply is not good UX, but it's better than silence.
                 await ctx.reply("Build failed.")
                 return
-            answers_map = load_answers(cur, day, part)
+
+            with Database() as db:
+                # TODO dont hardcode 2023
+                answers_map = db.load_answers(2023, day, part)
+
             for in_file in get_input_files(day):
                 logger.info("Processing file: %s", in_file)
                 load_input(tmpdir, day, in_file)
@@ -51,9 +58,10 @@ async def benchmark(ctx: commands.Context, day: int, part: int, code: bytes, ):
                 if result is not None:
                     results.append(result)
 
-            if len(results) > 0:
-                save_results(cur, op_id, day, part, code, results)
-                db.commit()
+            if results:
+                with Database() as db:
+                    # TODO dont hardcode 2023
+                    db.save_results(op_id, 2023, day, part, code, results)
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
@@ -105,7 +113,7 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
     code_path = os.path.join(tmp_dir, "src", "code.rs")
     with open(code_path, "wb") as code_file:
         code_file.write(solution_code)
-    
+
     logger.debug("Contents of tmp dir: %s", os.listdir(tmp_dir))
 
 
@@ -118,21 +126,24 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
     logger.info("Running container to build code for %s", author_id)
     try:
         loop = asyncio.get_event_loop()
-        out = await loop.run_in_executor(None, functools.partial(
-            doc.containers.run,
-            settings.docker.container_ref,
-            "timeout --kill-after=5s 30s cargo build",
-            remove=True,
-            stdout=True,
-            mem_limit="8g",
-            network_mode="none",
-            # Don't mount the inputs directory here for defense-in-depth
-            volumes={
-                os.path.join(tmp_dir, "src"): {'bind': '/app/src', 'mode': 'rw'},
-                os.path.join(tmp_dir, "benches"): {'bind': '/app/benches', 'mode': 'rw'},
-                os.path.join(tmp_dir, "target"): {'bind': '/app/target', 'mode': 'rw'},
-                }
-        ))
+        out = await loop.run_in_executor(
+            None,
+            functools.partial(
+                doc.containers.run,
+                settings.docker.container_ref,
+                "timeout --kill-after=5s 30s cargo build",
+                remove=True,
+                stdout=True,
+                mem_limit="8g",
+                network_mode="none",
+                # Don't mount the inputs directory here for defense-in-depth
+                volumes={
+                    os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
+                    os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
+                    os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
+                },
+            ),
+        )
         out = out.decode("utf-8")
         logger.debug("Build container output: %s", out)
         return True
@@ -189,7 +200,9 @@ def load_input(tmp_dir: str, day: int, file_name: str):
     shutil.copy(os.path.join(day_path, file_name), container_inputs_path)
 
 
-async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str) -> Optional[list[str]]:
+async def run_code(
+    author_name: str, author_id: int, tmp_dir: str, in_file: str
+) -> Optional[list[str]]:
     """
     Designed to be used with a basic rust container. Given the code already
     built in tmp_dir as a volume, run the benchmark itself.
@@ -198,36 +211,41 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
     logger.info("Running container to run code for %s", author_id)
     try:
         loop = asyncio.get_event_loop()
-        out = await loop.run_in_executor(None, functools.partial(
-            doc.containers.run,
-            settings.docker.container_ref,
-            "timeout --kill-after=15s 120s cargo criterion --message-format=json",
-            environment={
-                "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
-            },
-            remove=True,
-            stdout=True,
-            stderr=True,
-            mem_limit="8g",
-            network_mode="none",
-            volumes={
-                os.path.join(tmp_dir, "src"): {'bind': '/app/src', 'mode': 'rw'},
-                os.path.join(tmp_dir, "benches"): {'bind': '/app/benches', 'mode': 'rw'},
-                os.path.join(tmp_dir, "inputs"): {'bind': '/app/inputs', 'mode': 'rw'},
-                os.path.join(tmp_dir, "target"): {'bind': '/app/target', 'mode': 'rw'},
-                }
-        ))
+        out = await loop.run_in_executor(
+            None,
+            functools.partial(
+                doc.containers.run,
+                settings.docker.container_ref,
+                "timeout --kill-after=15s 120s cargo criterion --message-format=json",
+                environment={
+                    "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
+                },
+                remove=True,
+                stdout=True,
+                stderr=True,
+                mem_limit="8g",
+                network_mode="none",
+                volumes={
+                    os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
+                    os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
+                    os.path.join(tmp_dir, "inputs"): {"bind": "/app/inputs", "mode": "rw"},
+                    os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
+                },
+            ),
+        )
         out: str = out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
         results = []
 
         for l in out.splitlines():
-            if len(l) == 0 or l[0] != '{':
+            if len(l) == 0 or l[0] != "{":
                 continue
             l_data = json.loads(l)
             results.append(l_data)
 
-        logger.debug("Results from container run for user %s, file %s: %s", author_id, in_file, results)
+        logger.debug(
+            "Results from container run for user %s, file %s: %s", author_id, in_file, results
+        )
         return results
     except docker.errors.ContainerError:
         logger.exception("Error in docker while running code")
@@ -237,6 +255,7 @@ async def run_code(author_name: str, author_id: int, tmp_dir: str, in_file: str)
 @dataclass(slots=True)
 class RunResult:
     """Dataclass holding summary of a benchmarking run."""
+
     answer: int | str
     verified: bool
     # These are optional because defaulting to zero seems like a bad idea.
@@ -247,10 +266,19 @@ class RunResult:
     low_bound: Optional[float]
 
 
-def process_run_result(in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]) -> Optional[RunResult]:
+def process_run_result(
+    in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
+) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
-    result = RunResult(answer="", verified=False, typical=None, average=None, median=None, 
-                       high_bound=None, low_bound=None)
+    result = RunResult(
+        answer="",
+        verified=False,
+        typical=None,
+        average=None,
+        median=None,
+        high_bound=None,
+        low_bound=None,
+    )
     if result_lst is None:
         logger.info("No run result due to lack of container output. Did the container error out?")
         return None
@@ -275,22 +303,7 @@ def process_run_result(in_file: str, answers_map: dict[str, Any], result_lst: Op
     return result
 
 
-def save_results(cur: Cursor, author_id: int, day: int, part: int, code: bytes, results):
-    """
-    Save the benchmark run results to the DB.
-    """
-
-    str_code = code.decode()
-    db_results = [(str(author_id), str_code, day, part, r.median,
-                   int(r.answer) if isinstance(r.answer, int) or r.answer.isdigit() else None, r.answer) for r in
-                  results]
-
-    query = "INSERT INTO runs(user, code, day, part, time, answer, answer2) VALUES (?, ?, ?, ?, ?, ?, ?)"
-
-    cur.executemany(query, db_results)
-
-
-def ns(v) -> str:
+def ns(v: float) -> str:
     """Format number of nanoseconds for display."""
     if v > 1e9:
         return f"{v / 1e9:.2f}s"
@@ -301,27 +314,17 @@ def ns(v) -> str:
     return f"{v:.0f}ns"
 
 
-def get_best_times(day) -> Tuple[list[Tuple[int, str]], list[Tuple[int, str]]]:
+def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
     """
-    Get the current contents of the leaderboard for the given day. Results are returned as a 
+    Get the current contents of the leaderboard for the given day. Results are returned as a
     tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
     """
-    db = Database().get()
-    query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
-           GROUP BY user ORDER BY time"""
 
-    times1 = []
-    for user_id, time in db.cursor().execute(query, (day, 1)):
-        if user_id is None or time is None:
-            continue
-        user_id = int(user_id)
-        times1.append((user_id, ns(time)))
-    times2 = []
-    for user_id, time in db.cursor().execute(query, (day, 2)):
-        if user_id is None or time is None:
-            continue
-        user_id = int(user_id)
-        times2.append((user_id, ns(time)))
+    with Database() as db:
+        # TODO dont hardcode year
+        times1 = [(user, ns(time)) for user, time in db.best_times(2023, day, 1)]
+        times2 = [(user, ns(time)) for user, time in db.best_times(2023, day, 2)]
+
     return (times1, times2)
 
 
