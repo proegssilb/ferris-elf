@@ -20,6 +20,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
+import constants
 from database import Database
 from error_handler import get_full_class_name
 
@@ -47,8 +48,7 @@ async def benchmark(
                 return
 
             with Database() as db:
-                # TODO dont hardcode 2023
-                answers_map = db.load_answers(2023, day, part)
+                answers_map = db.load_answers(year(), day, part)
 
             for in_file in get_input_files(day):
                 logger.info("Processing file: %s", in_file)
@@ -60,8 +60,7 @@ async def benchmark(
 
             if results:
                 with Database() as db:
-                    # TODO dont hardcode 2023
-                    db.save_results(op_id, 2023, day, part, code, results)
+                    db.save_results(op_id, year(), day, part, code, results)
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
@@ -321,9 +320,8 @@ def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str
     """
 
     with Database() as db:
-        # TODO dont hardcode year
-        times1 = [(user, ns(time)) for user, time in db.best_times(2023, day, 1)]
-        times2 = [(user, ns(time)) for user, time in db.best_times(2023, day, 2)]
+        times1 = [(user, ns(time)) for user, time in db.best_times(year(), day, 1)]
+        times2 = [(user, ns(time)) for user, time in db.best_times(year(), day, 2)]
 
     return (times1, times2)
 
@@ -336,11 +334,21 @@ def get_input_dir_for_day(day: int) -> str:
 
 def year() -> int:
     """Return the current year, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return stamp.year
+    if stamp.month == 12:
+        return stamp.year
+    else:
+        return stamp.year - 1
 
 
 def today() -> int:
     """Return the current day, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return min(stamp.day, 25)
+    if stamp.month == 12:
+        return min(stamp.day, constants.MAX_DAY)
+    else:
+        return constants.MAX_DAY
