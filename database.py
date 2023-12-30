@@ -38,11 +38,9 @@ class Database:
         if self._auto_commit:
             self._cursor.connection.commit()
 
-    def load_answers(self, year: int, day: int, part: int, /) -> dict[str, str]:
+    # TODO(ultrabear): the current backend has no year concept, but this PR is for the API change first
+    def load_answers(self, _year: int, day: int, part: int, /) -> dict[str, str]:
         """Load the expected answers for each input file."""
-
-        # TODO(ultrabear): the current backend has no year concept, but this PR is for the API change first
-        _ = year
 
         rows = self._cursor.execute(
             "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
@@ -59,7 +57,7 @@ class Database:
     def save_results(
         self,
         author_id: int,
-        year: int,
+        _year: int,
         day: int,
         part: int,
         code: bytes,
@@ -69,9 +67,6 @@ class Database:
         """
         Save the benchmark run results to the DB.
         """
-
-        # TODO(ultrabear): the current backend has no year concept, but this PR is for the API change first
-        _ = year
 
         str_code = code.decode()
         db_results = [
@@ -91,11 +86,8 @@ class Database:
 
         self._cursor.executemany(query, db_results)
 
-    def best_times(self, year: int, day: int, part: int, /) -> Iterator[tuple[int, float]]:
+    def best_times(self, _year: int, day: int, part: int, /) -> Iterator[tuple[int, float]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
-
-        # TODO(ultrabear): the current backend has no year concept, but this PR is for the API change first
-        _ = year
 
         query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
            GROUP BY user ORDER BY time"""
