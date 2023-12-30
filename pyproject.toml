@@ -14,6 +14,7 @@ dynaconf = "^3.2.4"
 tzdata = "^2023.3"
 # this is used in fetch.py
 requests = "^2.31.0"
+aiohttp = "^3.9.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.8"
