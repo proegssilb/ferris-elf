@@ -152,7 +152,6 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-
 def get_input_files(day: int) -> list[str]:
     """
     List all the input files that exist for the current day.

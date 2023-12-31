@@ -36,7 +36,9 @@ class ErrorHandlerCog(commands.Cog):
         self.bot: commands.Bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, commanderror: commands.CommandError) -> None:
+    async def on_command_error(
+        self, ctx: commands.Context, commanderror: commands.CommandError
+    ) -> None:
         async def dmauthor(*args, **kwargs):
             try:
                 return await ctx.author.send(*args, **kwargs)

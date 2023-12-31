@@ -125,7 +125,6 @@ class Commands(commands.Cog):
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
-
     # TODO(ultrabear): Bot.user is a Nullable field,
     # we should properly fix this sometime
     assert dbot.user is not None
