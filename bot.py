@@ -1,8 +1,9 @@
 import asyncio
+from io import StringIO
 import logging
 import sys
 import typing
-from typing import Annotated, Optional, Literal
+from typing import Annotated, Any, Optional, Literal
 
 import discord
 from discord.ext import commands
@@ -11,7 +12,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import Database
+from database import Database, Picoseconds
 from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
@@ -20,16 +21,16 @@ logger = logging.getLogger(__name__)
 class MyBot(commands.Bot):
     __slots__ = ("queue", "db")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue()
         # this is unusued ??
         self.db = Database()
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         logger.info("Logged in as %s", self.user)
         while True:
             try:
@@ -45,12 +46,12 @@ class MyBot(commands.Bot):
 class Commands(commands.Cog):
     __slots__ = ("bot",)
 
-    def __init__(self, sbot: MyBot):
+    def __init__(self, sbot: MyBot) -> None:
         self.bot = sbot
 
     @commands.command()
     @commands.is_owner()
-    async def sync(self, ctx: commands.Context):
+    async def sync(self, ctx: commands.Context) -> None:
         # sync slash commands
         # this is a separate command because rate limits
         await self.bot.tree.sync()
@@ -63,20 +64,20 @@ class Commands(commands.Cog):
         ctx: commands.Context,
         day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
-    ):
+    ) -> None:
         if day is None:
             day = lib.today()
         else:
             if day > lib.today():
                 raise commands.BadArgument(f"Day {day} is in the future!")
 
-        async def format_times(times):
-            formatted = ""
+        async def format_times(times: list[tuple[int, str]]) -> str:
+            formatted = StringIO()
             for user_id, time in times:
                 user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
                 if user:
-                    formatted += f"\t{user.name}:  **{time}**\n"
-            return formatted
+                    formatted.write(f"\t{user.name}:  **{time}**\n")
+            return formatted.getvalue()
 
         (times1, times2) = lib.get_best_times(day)
         times1_str = await format_times(times1)
@@ -97,7 +98,7 @@ class Commands(commands.Cog):
         day: commands.Range[int, 1, 25],
         part: Literal[1, 2],
         code: discord.Attachment,
-    ):
+    ) -> None:
         if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
         await ctx.reply("Submitting...")
@@ -115,15 +116,20 @@ class Commands(commands.Cog):
         )
 
     @commands.hybrid_command()
-    async def help(self, ctx: commands.Context):
+    async def help(self, ctx: commands.Context) -> None:
         await ctx.reply(embed=constants.HELP_REPLY)
 
     @commands.hybrid_command()
-    async def info(self, ctx: commands.Context):
+    async def info(self, ctx: commands.Context) -> None:
         await ctx.reply(embed=constants.INFO_REPLY)
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
+
+    # TODO(ultrabear): Bot.user is a Nullable field,
+    # we should properly fix this sometime
+    assert dbot.user is not None
+
     # TODO: guild-specific prefixes
     return [
         "aoc ",
