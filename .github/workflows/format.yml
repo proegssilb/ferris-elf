@@ -1,0 +1,24 @@
+name: Ruff Format
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - name: Use poetry to install dev tools
+      run: |
+        pip install poetry
+        poetry install --no-root
+    - name: Run a format check with ruff
+      run: |
+        poetry run ruff format --check
