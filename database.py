@@ -1,10 +1,45 @@
 import sqlite3
 from typing import TYPE_CHECKING, Iterator, Optional
+from dataclasses import dataclass
+import discord
 
 import config
 
 if TYPE_CHECKING:
     from lib import RunResult
+
+
+@dataclass(slots=True, frozen=True)
+class BenchedSubmission:
+    run_id: int
+    user_id: int
+    run_time: float
+    code: str
+    valid: bool
+
+
+class GuildDatabase:
+    __slots__ = ("_database", "_guild")
+
+    def __init__(self, db: "Database", guild_id: int) -> None:
+        self._database = db
+        self._guild = guild_id
+
+    def __enter__(self) -> "GuildDatabase":
+        return self
+
+    def __exit__(self, *ignore: object) -> None:
+        if self._database._auto_commit:
+            self._database._cursor.connection.commit()
+
+    def set_config(self, key: str, value: str) -> None:
+        raise NotImplementedError
+
+    def delete_config(self, key: str) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_config(self, key: str) -> Optional[str]:
+        raise NotImplementedError
 
 
 # connection is a static variable that is shared across all instances of DB
@@ -93,7 +128,21 @@ class Database:
            GROUP BY user ORDER BY time"""
 
         return (
-            (int(user), int(time))
+            (int(user), float(time))
             for user, time in self._cursor.execute(query, (day, part))
             if user is not None and time is not None
         )
+
+    def get_user_submissions(
+        self, year: int, day: int, part: int, user_id: int
+    ) -> list[BenchedSubmission]:
+        raise NotImplementedError
+
+    def get_submission_by_id(self, submission_id: int) -> Optional[BenchedSubmission]:
+        raise NotImplementedError
+
+    def mark_submission_invalid(self, submission_id: int) -> bool:
+        raise NotImplementedError
+
+    def in_guild(self, guild_id: int) -> GuildDatabase:
+        return GuildDatabase(self, guild_id)

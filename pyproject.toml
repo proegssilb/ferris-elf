@@ -24,6 +24,9 @@ types-requests = "^2.31.0.10"
 [tool.ruff]
 line-length = 100
 
+[tool.mypy]
+ignore_missing_imports = true
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
