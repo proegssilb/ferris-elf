@@ -20,7 +20,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import Database, Nanoseconds
+from database import Database, Picoseconds
 from error_handler import get_full_class_name
 
 doc = docker.from_env()
@@ -70,7 +70,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
-                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
+                    description=f"Median: **{Picoseconds.from_nanos(median)}**\nAverage: **{Picoseconds.from_nanos(average)}**",
                 )
             )
         else:
@@ -79,7 +79,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
-                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
+                    description=f"Median: **{Picoseconds.from_nanos(median)}**\nAverage: **{Picoseconds.from_nanos(average)}**",
                 )
             )
 

@@ -1,6 +1,7 @@
 import sqlite3
-from typing import TYPE_CHECKING, Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional, Self
 from dataclasses import dataclass
+import gzip
 
 import config
 
@@ -37,19 +38,6 @@ def format_picos(ts: float | int) -> str:
         return f"{timestamp:.2f}{base}"
 
 
-class Nanoseconds(float):
-    __slots__ = ()
-
-    def __str__(self) -> str:
-        return format_picos(self.as_picos())
-
-    def as_picos(self) -> int:
-        return int(self * 1000)
-
-    def as_nanos(self) -> float:
-        return self
-
-
 class Picoseconds(int):
     __slots__ = ()
 
@@ -62,73 +50,214 @@ class Picoseconds(int):
     def as_nanos(self) -> float:
         return self / 1000
 
+    @classmethod
+    def from_nanos(cls, v: float) -> Self:
+        return cls(int(v * 1000))
+
 
 @dataclass(slots=True, frozen=True)
 class BenchedSubmission:
     run_id: int
     user_id: int
-    run_time: Nanoseconds | Picoseconds
+    run_time: Picoseconds
     code: str
     valid: bool
 
 
 class GuildDatabase:
+    """
+    GLS (Guild Local Storage) helper class, very hard to leak data between different guilds when used
+    """
+
     __slots__ = ("_database", "_guild")
 
-    def __init__(self, db: "Database", guild_id: int) -> None:
+    def __init__(self, db: "Database", guild_id: int, /) -> None:
         self._database = db
         self._guild = guild_id
 
-    def __enter__(self) -> "GuildDatabase":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *ignore: object) -> None:
         if self._database._auto_commit:
             self._database._cursor.connection.commit()
 
-    def set_config(self, key: str, value: str) -> None:
-        raise NotImplementedError
+    def set_config(self, key: str, value: str, /) -> None:
+        self._database._cursor.execute(
+            "REPLACE INTO guild_config (guild_id, config_name, config_value) VALUES (?, ?, ?)",
+            (self._guild, key, value),
+        )
 
     def delete_config(self, key: str) -> Optional[str]:
-        raise NotImplementedError
+        old_config = self._database._cursor.execute(
+            "DELETE FROM guild_config WHERE (guild_id = ? AND config_name = ?) RETURNING config_value",
+            (self._guild, key),
+        )
+
+        # we have if let Some at home T-T
+        if (row := old_config.fetchone()) is not None:
+            return str(row[0])
+
+        return None
 
     def get_config(self, key: str) -> Optional[str]:
-        raise NotImplementedError
+        config = self._database._cursor.execute(
+            "SELECT config_value FROM guild_config WHERE (guild_id = ? AND config_name = ?)",
+            (self._guild, key),
+        )
+
+        if (row := config.fetchone()) is not None:
+            return str(row[0])
+
+        return None
 
 
-# connection is a static variable that is shared across all instances of DB
-# so we reuse the same connection across all users of this class
+def pack_day_part(day: int, part: int) -> int:
+    assert 1 <= part <= 2, "part was not 1 or 2, aborting before packing causes corruption"
+    return (day << 1) & (part - 1)
+
+
+def unpack_day_part(packed: int) -> tuple[int, int]:
+    day = packed >> 1
+    part = (packed & 1) + 1
+
+    return day, part
+
+
+def _load_initial_schema(cur: sqlite3.Cursor) -> None:
+    # enable foreign key support so that sqlite actually works how it says it does
+    # seriously why is this off by default
+    cur.execute("PRAGMA foreign_keys = ON")
+
+    # cache of fastest leaderboard times optimized for a single COVERING INDEX lookup
+    # AND table containing all runs ever submitted definitions
+    cur.executescript(
+        """
+        /* 
+            This will be used to lookup runs for the leaderboard, 
+            it is a mirror of data already in `runs`
+        */
+        CREATE TABLE IF NOT EXISTS best_runs (
+            user TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            /* packing day and part into one int, this also happens to be efficient to unpack */ 
+            day_part INTEGER NOT NULL,
+            best_time INTEGER NOT NULL,
+            run_id INTEGER NOT NULL REFERENCES runs (run_id),
+            
+            CONSTRAINT best_runs_index UNIQUE (year, day_part, best_time, user)
+        ) STRICT;
+
+        CREATE TABLE IF NOT EXISTS runs (
+            run_id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            user TEXT NOT NULL,
+            code BLOB NOT NULL, /* submitted code as gzipped blob */
+            year INTEGER NOT NULL,
+            day_part INTEGER NOT NULL,
+            run_time INTEGER NOT NULL, /* ps resolution, originally used ns */
+            answer TEXT NOT NULL,
+            /* whether or not the runs answer was valid, treated as boolean */
+            valid INTEGER NOT NULL DEFAULT ( 1 ),
+
+            bencher_version INTEGER NOT NULL REFERENCES container_versions (id)
+        ) STRICT;
+
+        CREATE INDEX IF NOT EXISTS runs_index ON runs (year, day_part, valid, user, run_time);
+    """
+    )
+
+    # inputs and answer validation
+    cur.executescript(
+        """
+        /* general table of inputs that might have solutions */
+        CREATE TABLE IF NOT EXISTS inputs (
+            year INTEGER NOT NULL,
+            /* dont use day-part here since inputs are the same for one day */
+            day INTEGER NOT NULL,
+            /* provides an ordering of inputs per day */
+            session_label TEXT NOT NULL,
+            /* gzip compressed input */
+            input BLOB NOT NULL,
+            /* the validated answer is an optional row up until verified outputs are available */
+            answer_p1 TEXT, 
+            answer_p2 TEXT,
+
+            CONSTRAINT inputs_lookup UNIQUE (year, day, session_label)
+        ) STRICT;
+
+        CREATE TABLE IF NOT EXISTS wrong_answers (
+            year INTEGER NOT NULL,
+            day_part INTEGER NOT NULL, 
+            session_label TEXT NOT NULL,
+            answer TEXT NOT NULL
+        ) STRICT;
+
+        CREATE INDEX IF NOT EXISTS wrong_answers_cache ON wrong_answers (year, day_part, session_label, answer);                
+    """
+    )
+
+    # version control information
+    cur.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS container_versions (
+            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            /* rustc version used as output by `rustc --version` */
+            rustc_version TEXT NOT NULL,
+            container_version TEXT NOT NULL UNIQUE,
+            /*
+                a high level indicator of the benchmarking setup used,
+                this should be incremented whenever the way the bencher
+                benches code changes in a way that affects results
+            */
+            benchmark_format INTEGER NOT NULL,
+            /*
+                gzipped tar archive of the default bencher workspace, including
+                Cargo.toml, Cargo.lock, and any rs files that were run
+            */
+            bench_directory BLOB NOT NULL
+        ) STRICT;
+    """
+    )
+
+    # guild configuration stuff
+    cur.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS guild_config (
+            guild_id TEXT NOT NULL,
+            config_name TEXT NOT NULL,
+            config_value TEXT NOT NULL,
+
+            CONSTRAINT single_guild_config UNIQUE (guild_id, config_name)
+        ) STRICT;
+    """
+    )
+
+
 class Database:
     __slots__ = ("_cursor", "_auto_commit")
 
+    # connection is initialized once at bot startup in this singleton
     connection: Optional[sqlite3.Connection] = None
 
     def __init__(self, *, auto_commit: bool = True) -> None:
         if Database.connection is None:
-            Database.connection = sqlite3.connect(config.settings.db.filename)
-            cur = Database.connection.cursor()
-            cur.execute(
-                """CREATE TABLE IF NOT EXISTS runs
-                (user TEXT, code TEXT, day INTEGER, part INTEGER, time REAL, answer INTEGER, answer2)"""
-            )
-            cur.execute(
-                """CREATE TABLE IF NOT EXISTS solutions
-                (key TEXT, day INTEGER, part INTEGER, answer INTEGER, answer2)"""
-            )
-            Database.connection.commit()
+            # assigns both to same object
+            con = Database.connection = sqlite3.connect(config.settings.db.filename)
+            cur = con.cursor()
+            _load_initial_schema(cur)
+            con.commit()
 
-        self._cursor = Database.connection.cursor()
-        self._auto_commit = auto_commit
+        self._cursor: sqlite3.Cursor = Database.connection.cursor()
+        self._auto_commit: bool = auto_commit
 
-    def __enter__(self) -> "Database":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *ignore: object) -> None:
         if self._auto_commit:
             self._cursor.connection.commit()
 
-    # TODO(ultrabear): the current backend has no year concept, but this PR is for the API change first
-    def load_answers(self, _year: int, day: int, part: int, /) -> dict[str, str]:
+    def load_answers(self, year: int, day: int, part: int, /) -> dict[str, str]:
         """Load the expected answers for each input file."""
 
         rows = self._cursor.execute(
@@ -146,7 +275,7 @@ class Database:
     def save_results(
         self,
         author_id: int,
-        _year: int,
+        year: int,
         day: int,
         part: int,
         code: bytes,
@@ -156,37 +285,34 @@ class Database:
         """
         Save the benchmark run results to the DB.
         """
+        raise NotImplementedError("API needs redesign :C")
 
-        str_code = code.decode()
+        compressed_code = gzip.compress(code)
+
         db_results = [
             (
                 str(author_id),
-                str_code,
-                day,
-                part,
-                r.median,
-                int(r.answer) if isinstance(r.answer, int) or r.answer.isdigit() else None,
+                compressed_code,
+                year,
+                pack_day_part(day, part),
+                Picoseconds.from_nanos(r.median),
                 r.answer,
             )
             for r in results
         ]
 
-        query = "INSERT INTO runs(user, code, day, part, time, answer, answer2) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        query = "INSERT INTO runs (user, code, year, day_part, run_time, answer, bencher_version) VALUES (?, ?, ?, ?, ?, ?, ?)"
 
         self._cursor.executemany(query, db_results)
 
-    def best_times(
-        self, _year: int, day: int, part: int, /
-    ) -> Iterator[tuple[int, Nanoseconds | Picoseconds]]:
+    def best_times(self, year: int, day: int, part: int, /) -> Iterator[tuple[int, Picoseconds]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
-        query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
-           GROUP BY user ORDER BY time"""
+        query = "SELECT user, best_time FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time"
 
         return (
-            (int(user), Nanoseconds(time))
-            for user, time in self._cursor.execute(query, (day, part))
-            if user is not None and time is not None
+            (int(user), Picoseconds(time))
+            for user, time in self._cursor.execute(query, (year, pack_day_part(day, part)))
         )
 
     def get_user_submissions(
