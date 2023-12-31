@@ -1,7 +1,6 @@
 import sqlite3
 from typing import TYPE_CHECKING, Iterator, Optional
 from dataclasses import dataclass
-import discord
 
 import config
 
@@ -9,11 +8,66 @@ if TYPE_CHECKING:
     from lib import RunResult
 
 
+def format_picos(ts: float | int) -> str:
+    timestamp = float(ts)
+
+    base = "ps"
+    scalar: list[tuple[str, int]] = [
+        ("ns", 1000),
+        ("µs", 1000),
+        ("ms", 1000),
+        ("s", 1000),
+        ("m", 60),
+        ("h", 60),
+    ]
+
+    for name, offset in scalar:
+        if timestamp > offset:
+            timestamp /= offset
+            base = name
+        else:
+            break
+
+    # remove any trailing stuff
+    timestamp = round(timestamp, 2)
+
+    if timestamp.is_integer():
+        return f"{timestamp:.0f}{base}"
+    else:
+        return f"{timestamp:.2f}{base}"
+
+
+class Nanoseconds(float):
+    __slots__ = ()
+
+    def __str__(self) -> str:
+        return format_picos(self.as_picos())
+
+    def as_picos(self) -> int:
+        return int(self * 1000)
+
+    def as_nanos(self) -> float:
+        return self
+
+
+class Picoseconds(int):
+    __slots__ = ()
+
+    def __str__(self) -> str:
+        return format_picos(self.as_picos())
+
+    def as_picos(self) -> int:
+        return self
+
+    def as_nanos(self) -> float:
+        return self / 1000
+
+
 @dataclass(slots=True, frozen=True)
 class BenchedSubmission:
     run_id: int
     user_id: int
-    run_time: float
+    run_time: Nanoseconds | Picoseconds
     code: str
     valid: bool
 
@@ -121,14 +175,16 @@ class Database:
 
         self._cursor.executemany(query, db_results)
 
-    def best_times(self, _year: int, day: int, part: int, /) -> Iterator[tuple[int, float]]:
+    def best_times(
+        self, _year: int, day: int, part: int, /
+    ) -> Iterator[tuple[int, Nanoseconds | Picoseconds]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
         query = """SELECT user, MIN(time) FROM runs WHERE day = ? AND part = ?
            GROUP BY user ORDER BY time"""
 
         return (
-            (int(user), float(time))
+            (int(user), Nanoseconds(time))
             for user, time in self._cursor.execute(query, (day, part))
             if user is not None and time is not None
         )
