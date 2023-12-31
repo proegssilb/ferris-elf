@@ -20,7 +20,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import Database
+from database import Database, Nanoseconds
 from error_handler import get_full_class_name
 
 doc = docker.from_env()
@@ -70,7 +70,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
-                    description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
                 )
             )
         else:
@@ -79,7 +79,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
-                    description=f"Median: **{ns(median)}**\nAverage: **{ns(average)}**",
+                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
                 )
             )
 
@@ -303,17 +303,6 @@ def process_run_result(
     return result
 
 
-def ns(v: float) -> str:
-    """Format number of nanoseconds for display."""
-    if v > 1e9:
-        return f"{v / 1e9:.2f}s"
-    if v > 1e6:
-        return f"{v / 1e6:.2f}ms"
-    if v > 1e3:
-        return f"{v / 1e3:.2f}µs"
-    return f"{v:.0f}ns"
-
-
 def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
     """
     Get the current contents of the leaderboard for the given day. Results are returned as a
@@ -322,8 +311,8 @@ def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str
 
     with Database() as db:
         # TODO dont hardcode year
-        times1 = [(user, ns(time)) for user, time in db.best_times(2023, day, 1)]
-        times2 = [(user, ns(time)) for user, time in db.best_times(2023, day, 2)]
+        times1 = [(user, str(time)) for user, time in db.best_times(2023, day, 1)]
+        times2 = [(user, str(time)) for user, time in db.best_times(2023, day, 2)]
 
     return (times1, times2)
 
