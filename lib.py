@@ -33,7 +33,7 @@ async def benchmark(
     day: int,
     part: int,
     code: bytes,
-):
+) -> None:
     """Run the entire benchmark process, end-to-end."""
     op_name, op_id = ctx.author.name, ctx.author.id
 
@@ -95,7 +95,7 @@ async def benchmark(
         #     await ctx.reply(errtxt, file=discord.File(buf, filename="traceback.txt"))
 
 
-def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
+def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
     """
     Set up tmp_dir for building. This copies in the runner and submitted code,
     but not the AOC inputs. We'll read those later.
@@ -152,20 +152,6 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-def load_answers(cursor: Cursor, day: int, part: int):
-    """Load the expected answers for each input file."""
-    rows = cursor.execute(
-        "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
-        (day, part),
-    )
-
-    answer_map = {}
-    for r in rows:
-        (key, answer) = r
-        answer_map[key] = answer
-
-    return answer_map
-
 
 def get_input_files(day: int) -> list[str]:
     """
@@ -175,7 +161,7 @@ def get_input_files(day: int) -> list[str]:
     return [f for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))]
 
 
-def load_input(tmp_dir: str, day: int, file_name: str):
+def load_input(tmp_dir: str, day: int, file_name: str) -> None:
     """
     Populate tmp_dir with the input files for the requested year/day.
     """
@@ -202,7 +188,7 @@ def load_input(tmp_dir: str, day: int, file_name: str):
 
 async def run_code(
     author_name: str, author_id: int, tmp_dir: str, in_file: str
-) -> Optional[list[str]]:
+) -> Optional[list[dict[str, Any]]]:
     """
     Designed to be used with a basic rust container. Given the code already
     built in tmp_dir as a volume, run the benchmark itself.
@@ -235,7 +221,7 @@ async def run_code(
         )
         out: str = out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
-        results = []
+        results = list[dict[str, Any]]()
 
         for l in out.splitlines():
             if len(l) == 0 or l[0] != "{":

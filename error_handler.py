@@ -11,7 +11,7 @@ import discord.ext.commands.errors as commanderrors
 logger = logging.getLogger(__name__)
 
 
-def get_full_class_name(obj):
+def get_full_class_name(obj: object) -> str:
     """
     Returns the fully qualified class name of `obj`, used for more clear error reporting.
     based on https://stackoverflow.com/a/2020083/9044183
@@ -30,11 +30,13 @@ class NonBugError(Exception):
 
 # completely overkill error handler shamelessly ripped from MediaForge, a bot i wrote
 class ErrorHandlerCog(commands.Cog):
-    def __init__(self, bot):
+    __slots__ = ("bot",)
+
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot: commands.Bot = bot
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, commanderror: commands.CommandError):
+    async def on_command_error(self, ctx: commands.Context, commanderror: commands.CommandError) -> None:
         async def dmauthor(*args, **kwargs):
             try:
                 return await ctx.author.send(*args, **kwargs)
@@ -43,7 +45,7 @@ class ErrorHandlerCog(commands.Cog):
                     f"Reply to {ctx.message.id} and dm to {ctx.author.id} failed. Aborting."
                 )
 
-        async def reply(msg, file=None, embed=None):
+        async def reply(msg: str, file=None, embed=None):
             try:
                 if ctx.interaction and ctx.interaction.response.is_done():
                     return await ctx.interaction.edit_original_response(
@@ -57,7 +59,7 @@ class ErrorHandlerCog(commands.Cog):
                     logger.debug("Trying to DM author")
                     return await dmauthor(msg, file=file, embed=embed)
 
-        async def logandreply(message):
+        async def logandreply(message: str) -> None:
             if ctx.guild:
                 ch = f"channel #{ctx.channel.name} ({ctx.channel.id}) in server {ctx.guild} ({ctx.guild.id})"
             else:
