@@ -298,23 +298,23 @@ class Database:
         """
         raise NotImplementedError("API needs redesign :C")
 
-        compressed_code = gzip.compress(code)
+        # compressed_code = gzip.compress(code)
 
-        db_results = [
-            (
-                str(author_id),
-                compressed_code,
-                year,
-                pack_day_part(day, part),
-                Picoseconds.from_nanos(r.median),
-                r.answer,
-            )
-            for r in results
-        ]
+        # db_results = [
+        #    (
+        #        str(author_id),
+        #        compressed_code,
+        #        year,
+        #        pack_day_part(day, part),
+        #        Picoseconds.from_nanos(r.median),
+        #        r.answer,
+        #    )
+        #    for r in results
+        # ]
 
-        query = "INSERT INTO runs (user, code, year, day_part, run_time, answer, bencher_version) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        # query = "INSERT INTO runs (user, code, year, day_part, run_time, answer, bencher_version) VALUES (?, ?, ?, ?, ?, ?, ?)"
 
-        self._cursor.executemany(query, db_results)
+        # self._cursor.executemany(query, db_results)
 
     def best_times(
         self, year: int, day: AdventDay, part: AdventPart, /
