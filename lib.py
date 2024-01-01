@@ -1,3 +1,4 @@
+from _typeshed import Self
 import asyncio
 import functools
 import json
@@ -66,7 +67,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
-                    description=f"Median: **{Picoseconds.from_nanos(median)}**\nAverage: **{Picoseconds.from_nanos(average)}**",
+                    description=f"Median: **{median}**\nAverage: **{average}**",
                 )
             )
         else:
@@ -75,7 +76,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
-                    description=f"Median: **{Picoseconds.from_nanos(median)}**\nAverage: **{Picoseconds.from_nanos(average)}**",
+                    description=f"Median: **{median}**\nAverage: **{average}**",
                 )
             )
 
@@ -234,12 +235,13 @@ async def run_code(
 
 
 @dataclass(slots=True)
-class RunResult:
-    """Dataclass holding summary of a benchmarking run."""
+class BuildRunResult:
+    """Dataclass to build summary of a benchmarking run."""
 
     answer: int | str
     verified: bool
     # These are optional because defaulting to zero seems like a bad idea.
+    # these times are all in nanosecond scale
     typical: Optional[float]
     average: Optional[float]
     median: Optional[float]
@@ -247,11 +249,45 @@ class RunResult:
     low_bound: Optional[float]
 
 
+def from_ns(v: Optional[float]) -> Picoseconds:
+    assert v is not None, "got none value while attempting conversion to Picoseconds"
+    return Picoseconds.from_nanos(v)
+
+
+@dataclass(slots=True)
+class RunResult:
+    """Dataclass with a summary of a benchmarking run."""
+
+    answer: int | str
+    verified: bool
+    typical: Picoseconds
+    average: Picoseconds
+    median: Picoseconds
+    high_bound: Picoseconds
+    low_bound: Picoseconds
+
+    @classmethod
+    def from_builder(cls, b: BuildRunResult) -> "RunResult":
+        typical, average, median, high_bound, low_bound = map(
+            from_ns, [b.typical, b.average, b.median, b.high_bound, b.low_bound]
+        )
+
+        return cls(
+            answer=b.answer,
+            verified=b.verified,
+            typical=typical,
+            average=average,
+            median=median,
+            high_bound=high_bound,
+            low_bound=low_bound,
+        )
+
+
 def process_run_result(
     in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
 ) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
-    result = RunResult(
+    result = BuildRunResult(
         answer="",
         verified=False,
         typical=None,
@@ -260,6 +296,7 @@ def process_run_result(
         high_bound=None,
         low_bound=None,
     )
+
     if result_lst is None:
         logger.info("No run result due to lack of container output. Did the container error out?")
         return None
@@ -281,7 +318,7 @@ def process_run_result(
             result.high_bound = blob["typical"]["upper_bound"]
             result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
-    return result
+    return RunResult.from_builder(result)
 
 
 def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
