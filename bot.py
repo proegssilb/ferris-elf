@@ -50,17 +50,18 @@ class Commands(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def sync(self, ctx: commands.Context) -> None:
+    async def sync(self, ctx: commands.Context[Any]) -> None:
         # sync slash commands
         # this is a separate command because rate limits
         await self.bot.tree.sync()
         await ctx.reply("synced!")
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
-    @commands.hybrid_command(aliases=["aoc", "lb"])
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command(aliases=["aoc", "lb"])  # type: ignore[arg-type]
     async def best(
         self,
-        ctx: commands.Context,
+        ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
@@ -90,10 +91,11 @@ class Commands(commands.Cog):
         await ctx.reply(embed=embed)
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
-    @commands.hybrid_command()
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
     async def submit(
         self,
-        ctx: commands.Context,
+        ctx: commands.Context[Any],
         day: commands.Range[int, 1, 25],
         part: Literal[1, 2],
         code: discord.Attachment,
@@ -114,12 +116,14 @@ class Commands(commands.Cog):
             + f"There are {self.bot.queue.qsize()} submissions in the queue."
         )
 
-    @commands.hybrid_command()
-    async def help(self, ctx: commands.Context) -> None:
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def help(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.HELP_REPLY)
 
-    @commands.hybrid_command()
-    async def info(self, ctx: commands.Context) -> None:
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def info(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.INFO_REPLY)
 
 

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 async def benchmark(
-    ctx: commands.Context,
+    ctx: commands.Context[Any],
     day: AdventDay,
     part: AdventPart,
     code: bytes,
@@ -192,7 +192,7 @@ async def run_code(
     logger.info("Running container to run code for %s", author_id)
     try:
         loop = asyncio.get_event_loop()
-        out = await loop.run_in_executor(
+        raw_out = await loop.run_in_executor(
             None,
             functools.partial(
                 doc.containers.run,
@@ -214,7 +214,7 @@ async def run_code(
                 },
             ),
         )
-        out: str = out.decode("utf-8")
+        out: str = raw_out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
         results = list[dict[str, Any]]()
 
