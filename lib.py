@@ -17,7 +17,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import AdventDay, AdventPart, Database, Picoseconds
+from database import AdventDay, AdventPart, Database, Picoseconds, SessionLabel
 
 doc = docker.from_env()
 
@@ -283,7 +283,7 @@ class RunResult:
 
 
 def process_run_result(
-    in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
+    in_file: str, answers_map: dict[SessionLabel, str], result_lst: Optional[list[dict[str, Any]]]
 ) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
     result = BuildRunResult(
@@ -306,7 +306,7 @@ def process_run_result(
         elif reason == "ferris-answer":
             answer = blob["answer"]
             result.answer = answer
-            if answers_map.get(in_file, None) == answer:
+            if answers_map.get(SessionLabel(in_file), None) == answer:
                 result.verified = True
             else:
                 result.verified = False
