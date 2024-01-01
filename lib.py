@@ -1,6 +1,5 @@
 import asyncio
 import functools
-import io
 import json
 import logging
 import os
@@ -8,10 +7,8 @@ import pathlib
 import shutil
 import statistics as stats
 import tempfile
-import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from sqlite3 import Cursor
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
@@ -21,7 +18,6 @@ from discord.ext import commands
 
 from config import settings
 from database import Database, Picoseconds
-from error_handler import get_full_class_name
 
 doc = docker.from_env()
 
@@ -83,7 +79,7 @@ async def benchmark(
                 )
             )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
         await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
         # with io.BytesIO() as buf:
@@ -222,10 +218,10 @@ async def run_code(
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
         results = list[dict[str, Any]]()
 
-        for l in out.splitlines():
-            if len(l) == 0 or l[0] != "{":
+        for line in out.splitlines():
+            if len(line) == 0 or line[0] != "{":
                 continue
-            l_data = json.loads(l)
+            l_data = json.loads(line)
             results.append(l_data)
 
         logger.debug(

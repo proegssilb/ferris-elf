@@ -2,7 +2,6 @@ import asyncio
 from io import StringIO
 import logging
 import sys
-import typing
 from typing import Annotated, Any, Optional, Literal
 
 import discord
@@ -12,7 +11,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import Database, Picoseconds
+from database import Database
 from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
@@ -156,7 +155,7 @@ if __name__ == "__main__":
 
     try:
         settings.validators.validate()
-    except ValidationError as ve:
+    except ValidationError:
         logger.exception(
             "Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info."
         )

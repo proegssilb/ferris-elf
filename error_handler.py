@@ -87,7 +87,7 @@ class ErrorHandlerCog(commands.Cog):
         errorstring = str(commanderror)
         match commanderror:
             case discord.Forbidden():
-                await dmauthor(f"I don't have permissions to send messages in that channel.")
+                await dmauthor("I don't have permissions to send messages in that channel.")
                 logger.info(commanderror)
             case commanderrors.CommandNotFound():
                 # remove prefix, remove excess args
@@ -95,12 +95,12 @@ class ErrorHandlerCog(commands.Cog):
                 err = f"Command `{cmd}` does not exist. "
                 await logandreply(err)
             case commanderrors.NotOwner():
-                err = f"You are not authorized to use this command."
+                err = "You are not authorized to use this command."
                 await logandreply(err)
             case commanderrors.UserInputError():
                 err = f"{errorstring}"
                 if ctx.command:
-                    err += f" Run `help` to see how to use this command."
+                    err += " Run `help` to see how to use this command."
                 await logandreply(err)
             case commanderrors.NoPrivateMessage() | commanderrors.CheckFailure():
                 err = f"⚠️ {errorstring}"
@@ -115,10 +115,10 @@ class ErrorHandlerCog(commands.Cog):
                 desc = "Please report this error with the attached traceback file to the GitHub."
                 embed = discord.Embed(color=0xED1C24, description=desc)
                 embed.add_field(
-                    name=f"Report Issue to GitHub",
-                    value=f"[Create New Issue](https://github.com/proegssilb/ferris-elf/issues/new"
+                    name="Report Issue to GitHub",
+                    value="[Create New Issue](https://github.com/proegssilb/ferris-elf/issues/new"
                     f"?title={urllib.parse.quote(str(commanderror), safe='')[:848]})\n[View Issu"
-                    f"es](https://github.com/proegssilb/ferris-elf/issues)",
+                    "es](https://github.com/proegssilb/ferris-elf/issues)",
                 )
                 with io.BytesIO() as buf:
                     if ctx.interaction:
