@@ -1,9 +1,8 @@
-from sqlite4 import SQLite4
+import sqlite3
 
 from config import settings
 
-db = SQLite4(settings.db.filename)
-db.connect()
+db = sqlite3.connect(settings.db.filename)
 cur = db.cursor()
 sum = 0
 for day in range(1, 26):
