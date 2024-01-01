@@ -11,7 +11,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import Database
+from database import AdventDay, Database
 from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class Commands(commands.Cog):
     async def best(
         self,
         ctx: commands.Context,
-        day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
         if day is None:

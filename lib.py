@@ -9,7 +9,7 @@ import statistics as stats
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from zoneinfo import ZoneInfo
 
 import discord
@@ -17,7 +17,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import Database, Picoseconds
+from database import AdventDay, AdventPart, Database, Picoseconds
 
 doc = docker.from_env()
 
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 async def benchmark(
     ctx: commands.Context,
-    day: int,
-    part: int,
+    day: AdventDay,
+    part: AdventPart,
     code: bytes,
 ) -> None:
     """Run the entire benchmark process, end-to-end."""
@@ -284,7 +284,7 @@ def process_run_result(
     return result
 
 
-def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
     """
     Get the current contents of the leaderboard for the given day. Results are returned as a
     tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
@@ -310,7 +310,8 @@ def year() -> int:
     return stamp.year
 
 
-def today() -> int:
+def today() -> AdventDay:
     """Return the current day, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return min(stamp.day, 25)
+    # SAFETY: day is always greater than 0, and we cap at 25
+    return cast(AdventDay, min(stamp.day, 25))

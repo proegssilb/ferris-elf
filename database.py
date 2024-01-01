@@ -1,5 +1,5 @@
 import sqlite3
-from typing import TYPE_CHECKING, Iterator, Optional, Self
+from typing import TYPE_CHECKING, Iterator, Literal, Optional, Self, TypeAlias, cast
 from dataclasses import dataclass
 import gzip
 
@@ -7,6 +7,12 @@ import config
 
 if TYPE_CHECKING:
     from lib import RunResult
+
+
+AdventDay: TypeAlias = Literal[
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+]
+AdventPart: TypeAlias = Literal[1, 2]
 
 
 def format_picos(ts: float | int) -> str:
@@ -112,16 +118,21 @@ class GuildDatabase:
         return None
 
 
-def pack_day_part(day: int, part: int) -> int:
+def pack_day_part(day: AdventDay, part: AdventPart) -> int:
     assert 1 <= part <= 2, "part was not 1 or 2, aborting before packing causes corruption"
-    return (day << 1) & (part - 1)
+    return (day - 1 << 1) & (part - 1)
 
 
-def unpack_day_part(packed: int) -> tuple[int, int]:
-    day = packed >> 1
-    part = (packed & 1) + 1
+def unpack_day_part(packed: int) -> tuple[AdventDay, AdventPart]:
+    day = (packed >> 1) + 1
+    # SAFETY: (N & 1) is 0..=1, +1 becomes 1..=2, which is a valid AdventPart
+    part = cast(AdventPart, (packed & 1) + 1)
 
-    return day, part
+    if 1 <= day <= 25:
+        # SAFETY: we have asserted that day is in AdventDay range
+        return cast(AdventDay, day), part
+    else:
+        raise ValueError("Packed value was outside valid range")
 
 
 def _load_initial_schema(cur: sqlite3.Cursor) -> None:
@@ -257,7 +268,7 @@ class Database:
         if self._auto_commit:
             self._cursor.connection.commit()
 
-    def load_answers(self, year: int, day: int, part: int, /) -> dict[str, str]:
+    def load_answers(self, year: int, day: AdventDay, part: AdventPart, /) -> dict[str, str]:
         """Load the expected answers for each input file."""
 
         rows = self._cursor.execute(
@@ -276,8 +287,8 @@ class Database:
         self,
         author_id: int,
         year: int,
-        day: int,
-        part: int,
+        day: AdventDay,
+        part: AdventPart,
         code: bytes,
         results: list["RunResult"],
         /,
@@ -305,7 +316,9 @@ class Database:
 
         self._cursor.executemany(query, db_results)
 
-    def best_times(self, year: int, day: int, part: int, /) -> Iterator[tuple[int, Picoseconds]]:
+    def best_times(
+        self, year: int, day: AdventDay, part: AdventPart, /
+    ) -> Iterator[tuple[int, Picoseconds]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
         query = "SELECT user, best_time FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time"
