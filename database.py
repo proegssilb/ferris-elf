@@ -1,7 +1,8 @@
 import sqlite3
 from typing import TYPE_CHECKING, Iterator, Literal, Optional, Self, TypeAlias, cast
 from dataclasses import dataclass
-import gzip
+# unused, caught by ruff
+# import gzip
 
 import config
 
