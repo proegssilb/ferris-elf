@@ -1,4 +1,3 @@
-from _typeshed import Self
 import asyncio
 import functools
 import json
@@ -10,7 +9,7 @@ import statistics as stats
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional, cast, Self
 from zoneinfo import ZoneInfo
 
 import discord
@@ -267,7 +266,7 @@ class RunResult:
     low_bound: Picoseconds
 
     @classmethod
-    def from_builder(cls, b: BuildRunResult) -> "RunResult":
+    def from_builder(cls, b: BuildRunResult) -> Self:
         typical, average, median, high_bound, low_bound = map(
             from_ns, [b.typical, b.average, b.median, b.high_bound, b.low_bound]
         )
