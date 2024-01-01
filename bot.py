@@ -11,7 +11,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import AdventDay, Database
+from database import AdventDay, AdventPart, Database
 from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class MyBot(commands.Bot):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.queue = asyncio.Queue()
+        self.queue = asyncio.Queue[tuple[commands.Context[Any], AdventDay, AdventPart, bytes]]()
         # this is unusued ??
         self.db = Database()
 
@@ -96,7 +96,7 @@ class Commands(commands.Cog):
     async def submit(
         self,
         ctx: commands.Context[Any],
-        day: commands.Range[int, 1, 25],
+        day: Annotated[AdventDay, commands.Range[int, 1, 25]],
         part: Literal[1, 2],
         code: discord.Attachment,
     ) -> None:
@@ -109,12 +109,15 @@ class Commands(commands.Cog):
             ctx.args,
             self.bot.queue.qsize(),
         )
+
         # using a tuple is probably the most readable but shut
         self.bot.queue.put_nowait((ctx, day, part, await code.read()))
-        await ctx.interaction.edit_original_response(
-            content=f"Your submission for day {day} part {part} has been queued. "
-            + f"There are {self.bot.queue.qsize()} submissions in the queue."
-        )
+
+        if ctx.interaction is not None:
+            await ctx.interaction.edit_original_response(
+                content=f"Your submission for day {day} part {part} has been queued. "
+                + f"There are {self.bot.queue.qsize()} submissions in the queue."
+            )
 
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
     @commands.hybrid_command()  # type: ignore[arg-type]
