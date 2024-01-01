@@ -1,5 +1,5 @@
 import sqlite3
-from typing import TYPE_CHECKING, Iterator, Literal, Optional, Self, TypeAlias, cast
+from typing import TYPE_CHECKING, Iterator, Literal, NewType, Optional, Self, TypeAlias, cast
 from dataclasses import dataclass
 # unused, caught by ruff
 # import gzip
@@ -14,6 +14,8 @@ AdventDay: TypeAlias = Literal[
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
 ]
 AdventPart: TypeAlias = Literal[1, 2]
+
+SessionLabel = NewType("SessionLabel", str)
 
 
 def format_picos(ts: float | int) -> str:
@@ -269,20 +271,12 @@ class Database:
         if self._auto_commit:
             self._cursor.connection.commit()
 
-    def load_answers(self, year: int, day: AdventDay, part: AdventPart, /) -> dict[str, str]:
+    def load_answers(
+        self, year: int, day: AdventDay, part: AdventPart, /
+    ) -> dict[SessionLabel, str]:
         """Load the expected answers for each input file."""
 
-        rows = self._cursor.execute(
-            "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
-            (day, part),
-        )
-
-        answer_map = {}
-        for r in rows:
-            (key, answer) = r
-            answer_map[key] = answer
-
-        return answer_map
+        raise NotImplementedError("DB implementation not finalized")
 
     def save_results(
         self,
@@ -299,29 +293,12 @@ class Database:
         """
         raise NotImplementedError("API needs redesign :C")
 
-        # compressed_code = gzip.compress(code)
-
-        # db_results = [
-        #    (
-        #        str(author_id),
-        #        compressed_code,
-        #        year,
-        #        pack_day_part(day, part),
-        #        Picoseconds.from_nanos(r.median),
-        #        r.answer,
-        #    )
-        #    for r in results
-        # ]
-
-        # query = "INSERT INTO runs (user, code, year, day_part, run_time, answer, bencher_version) VALUES (?, ?, ?, ?, ?, ?, ?)"
-
-        # self._cursor.executemany(query, db_results)
-
     def best_times(
         self, year: int, day: AdventDay, part: AdventPart, /
     ) -> Iterator[tuple[int, Picoseconds]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
+        # this will probably stay the same, it is a cache anyways
         query = "SELECT user, best_time FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time"
 
         return (
@@ -330,15 +307,15 @@ class Database:
         )
 
     def get_user_submissions(
-        self, year: int, day: int, part: int, user_id: int
+        self, year: int, day: int, part: int, user_id: int, /
     ) -> list[BenchedSubmission]:
         raise NotImplementedError
 
-    def get_submission_by_id(self, submission_id: int) -> Optional[BenchedSubmission]:
+    def get_submission_by_id(self, submission_id: int, /) -> Optional[BenchedSubmission]:
         raise NotImplementedError
 
-    def mark_submission_invalid(self, submission_id: int) -> bool:
+    def mark_submission_invalid(self, submission_id: int, /) -> bool:
         raise NotImplementedError
 
-    def in_guild(self, guild_id: int) -> GuildDatabase:
+    def in_guild(self, guild_id: int, /) -> GuildDatabase:
         return GuildDatabase(self, guild_id)
