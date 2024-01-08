@@ -1,6 +1,4 @@
 -- migrate:up
-/* ensures REFERENCES fields are valid */
-PRAGMA foreign_keys = ON;
 
 /* 
     This will be used to lookup runs for the leaderboard, 
