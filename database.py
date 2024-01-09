@@ -1,8 +1,7 @@
 import sqlite3
 from typing import TYPE_CHECKING, Iterator, Literal, NewType, Optional, Self, TypeAlias, cast
 from dataclasses import dataclass
-# unused, caught by ruff
-# import gzip
+import gzip
 
 import config
 
@@ -41,6 +40,10 @@ def format_picos(ts: float | int) -> str:
     # remove any trailing stuff
     timestamp = round(timestamp, 2)
 
+    # fun awesome fact, int decays to float in typeck directly,
+    # but is_integer is only implemented on float so if we didn't
+    # explicitly call timestamp = float(ts), this could break
+    # and typeck would be ok with it :D
     if timestamp.is_integer():
         return f"{timestamp:.0f}{base}"
     else:
@@ -49,6 +52,9 @@ def format_picos(ts: float | int) -> str:
 
 class Picoseconds(int):
     __slots__ = ()
+
+    def __repr__(self) -> str:
+        return f"Picoseconds({int(self)})"
 
     def __str__(self) -> str:
         return format_picos(self.as_picos())
@@ -63,6 +69,10 @@ class Picoseconds(int):
     def from_nanos(cls, v: float) -> Self:
         return cls(int(v * 1000))
 
+    @classmethod
+    def from_picos(cls, v: int) -> Self:
+        return cls(v)
+
 
 @dataclass(slots=True, frozen=True)
 class BenchedSubmission:
@@ -71,6 +81,10 @@ class BenchedSubmission:
     run_time: Picoseconds
     code: str
     valid: bool
+
+
+class ContainerVersionError(Exception):
+    __slots__ = ()
 
 
 class GuildDatabase:
@@ -173,9 +187,67 @@ class Database:
     def load_answers(
         self, year: int, day: AdventDay, part: AdventPart, /
     ) -> dict[SessionLabel, str]:
-        """Load the expected answers for each input file."""
+        """Load the expected answers for each input file, if they exist"""
 
-        raise NotImplementedError("DB implementation not finalized")
+        # apply a literal here to avoid potential future runtime pollution
+        checkpart: Literal["answer_p1", "answer_p2"] = "answer_p1" if part == 1 else "answer_p2"
+
+        result = {
+            SessionLabel(label): str(ans)
+            for label, ans in self._cursor.execute(
+                f"SELECT session_label, {checkpart} FROM inputs WHERE (year = ? AND day = ? AND {checkpart} IS NOT NULL)",
+                (year, day),
+            )
+        }
+
+        return result
+
+    def save_submission(
+        self, author_id: int, year: int, day: AdventDay, part: AdventPart, code: bytes, /
+    ) -> int:
+        """
+        Saves a benchmark submission to the database
+        this will insert a NULL into the average_time field,
+        it should be filled when all benchmarks are completed
+
+        Returns the unique submission_id that was generated for this submission
+        """
+
+        # TODO(ultrabear): assuming we are using the latest container
+        # version is probably ok maybe but its also kinda bad
+        # we should discuss this sometime idk
+        container_v = self._cursor.execute("SELECT MAX(id) FROM container_versions").fetchone()
+
+        if container_v is None:
+            raise ContainerVersionError("No container versions are initialized in the database")
+
+        compressed = gzip.compress(code)
+
+        # unnamed fields are filled with default types
+        rowid = self._cursor.execute(
+            "INSERT INTO submissions (user, year, day_part, code, bencher_version) VALUES (?, ?, ?, ?, ?)",
+            (str(author_id), year, pack_day_part(day, part), compressed, container_v),
+        ).lastrowid
+
+        # must be non null after successful .execute call
+        assert rowid is not None
+
+        return rowid
+
+    def save_bench_result(
+        self, submission_id: int, input_used: SessionLabel, avg_time: Picoseconds, answer: str, /
+    ) -> None:
+        raise NotImplementedError
+
+    def process_submission_average_time(self, submission_id: int, /) -> None:
+        """
+        Processes a submissions average time based on all benched results,
+        updating the submissions table in the database
+
+        This shuold be called once all benchmarks have completed
+        """
+
+        raise NotImplementedError
 
     def save_results(
         self,
@@ -190,7 +262,14 @@ class Database:
         """
         Save the benchmark run results to the DB.
         """
-        raise NotImplementedError("API needs redesign :C")
+
+        id = self.save_submission(author_id, year, day, part, code)
+
+        # problem: RunResult does not store session_label in it
+        # goal:
+        # for res in results: self.save_bench_result(id, label, res.average, res.answer)
+
+        self.process_submission_average_time(id)
 
     def best_times(
         self, year: int, day: AdventDay, part: AdventPart, /
