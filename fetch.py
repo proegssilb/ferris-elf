@@ -1,6 +1,8 @@
 from datetime import datetime
 import logging
-import os, os.path, sys
+import os
+import os.path
+import sys
 from zoneinfo import ZoneInfo
 
 import requests
@@ -15,7 +17,7 @@ aoc_base_dir = settings.aoc.inputs_dir
 logger = logging.getLogger(__name__)
 
 
-def get(day):
+def get(day: int) -> None:
     logger.info("Fetching input for day %s", day)
     day_dir = os.path.join(aoc_base_dir, str(day))
     year = datetime.now(tz=ZoneInfo("America/New_York")).year

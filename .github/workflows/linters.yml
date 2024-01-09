@@ -1,4 +1,4 @@
-name: Ruff Format
+name: Python Linters
 
 on: [push]
 
@@ -19,6 +19,10 @@ jobs:
       run: |
         pip install poetry
         poetry install --no-root
-    - name: Run a format check with ruff
+    - name: Run a format and code check with ruff
       run: |
         poetry run ruff format --check
+        poetry run ruff check
+    - name: Run mypy with pyproject configured settings
+      run: |
+        poetry run mypy .

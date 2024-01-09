@@ -1,6 +1,5 @@
 import asyncio
 import functools
-import io
 import json
 import logging
 import os
@@ -8,11 +7,9 @@ import pathlib
 import shutil
 import statistics as stats
 import tempfile
-import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from sqlite3 import Cursor
-from typing import Any, Optional
+from typing import Any, Optional, cast, Self
 from zoneinfo import ZoneInfo
 
 import discord
@@ -20,8 +17,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import Database, Nanoseconds
-from error_handler import get_full_class_name
+from database import AdventDay, AdventPart, Database, Picoseconds, SessionLabel
 
 doc = docker.from_env()
 
@@ -29,11 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 async def benchmark(
-    ctx: commands.Context,
-    day: int,
-    part: int,
+    ctx: commands.Context[Any],
+    day: AdventDay,
+    part: AdventPart,
     code: bytes,
-):
+) -> None:
     """Run the entire benchmark process, end-to-end."""
     op_name, op_id = ctx.author.name, ctx.author.id
 
@@ -70,7 +66,7 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
-                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
+                    description=f"Median: **{median}**\nAverage: **{average}**",
                 )
             )
         else:
@@ -79,11 +75,11 @@ async def benchmark(
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
-                    description=f"Median: **{Nanoseconds(median)}**\nAverage: **{Nanoseconds(average)}**",
+                    description=f"Median: **{median}**\nAverage: **{average}**",
                 )
             )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
         await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
         # with io.BytesIO() as buf:
@@ -95,7 +91,7 @@ async def benchmark(
         #     await ctx.reply(errtxt, file=discord.File(buf, filename="traceback.txt"))
 
 
-def populate_tmp_dir(tmp_dir: str, solution_code: bytes):
+def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
     """
     Set up tmp_dir for building. This copies in the runner and submitted code,
     but not the AOC inputs. We'll read those later.
@@ -152,30 +148,17 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-def load_answers(cursor: Cursor, day: int, part: int):
-    """Load the expected answers for each input file."""
-    rows = cursor.execute(
-        "SELECT key, answer2 FROM solutions WHERE day = ? AND part = ?",
-        (day, part),
-    )
-
-    answer_map = {}
-    for r in rows:
-        (key, answer) = r
-        answer_map[key] = answer
-
-    return answer_map
-
-
-def get_input_files(day: int) -> list[str]:
+def get_input_files(day: int) -> list[SessionLabel]:
     """
     List all the input files that exist for the current day.
     """
     day_path = get_input_dir_for_day(day)
-    return [f for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))]
+    return [
+        SessionLabel(f) for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))
+    ]
 
 
-def load_input(tmp_dir: str, day: int, file_name: str):
+def load_input(tmp_dir: str, day: int, file_name: str) -> None:
     """
     Populate tmp_dir with the input files for the requested year/day.
     """
@@ -201,8 +184,8 @@ def load_input(tmp_dir: str, day: int, file_name: str):
 
 
 async def run_code(
-    author_name: str, author_id: int, tmp_dir: str, in_file: str
-) -> Optional[list[str]]:
+    author_name: str, author_id: int, tmp_dir: str, in_file: SessionLabel, /
+) -> Optional[list[dict[str, Any]]]:
     """
     Designed to be used with a basic rust container. Given the code already
     built in tmp_dir as a volume, run the benchmark itself.
@@ -211,7 +194,7 @@ async def run_code(
     logger.info("Running container to run code for %s", author_id)
     try:
         loop = asyncio.get_event_loop()
-        out = await loop.run_in_executor(
+        raw_out = await loop.run_in_executor(
             None,
             functools.partial(
                 doc.containers.run,
@@ -233,14 +216,14 @@ async def run_code(
                 },
             ),
         )
-        out: str = out.decode("utf-8")
+        out: str = raw_out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
-        results = []
+        results = list[dict[str, Any]]()
 
-        for l in out.splitlines():
-            if len(l) == 0 or l[0] != "{":
+        for line in out.splitlines():
+            if len(line) == 0 or line[0] != "{":
                 continue
-            l_data = json.loads(l)
+            l_data = json.loads(line)
             results.append(l_data)
 
         logger.debug(
@@ -253,12 +236,13 @@ async def run_code(
 
 
 @dataclass(slots=True)
-class RunResult:
-    """Dataclass holding summary of a benchmarking run."""
+class BuildRunResult:
+    """Dataclass to build summary of a benchmarking run."""
 
     answer: int | str
     verified: bool
     # These are optional because defaulting to zero seems like a bad idea.
+    # these times are all in nanosecond scale
     typical: Optional[float]
     average: Optional[float]
     median: Optional[float]
@@ -266,11 +250,49 @@ class RunResult:
     low_bound: Optional[float]
 
 
+def from_ns(v: Optional[float]) -> Picoseconds:
+    assert v is not None, "got none value while attempting conversion to Picoseconds"
+    return Picoseconds.from_nanos(v)
+
+
+@dataclass(slots=True)
+class RunResult:
+    """Dataclass with a summary of a benchmarking run."""
+
+    answer: int | str
+    verified: bool
+    typical: Picoseconds
+    average: Picoseconds
+    median: Picoseconds  # this is the one we put in the database
+    high_bound: Picoseconds
+    low_bound: Picoseconds
+    from_session: SessionLabel
+
+    @classmethod
+    def from_builder_and_session(cls, b: BuildRunResult, session: SessionLabel) -> Self:
+        typical, average, median, high_bound, low_bound = map(
+            from_ns, [b.typical, b.average, b.median, b.high_bound, b.low_bound]
+        )
+
+        return cls(
+            answer=b.answer,
+            verified=b.verified,
+            typical=typical,
+            average=average,
+            median=median,
+            high_bound=high_bound,
+            low_bound=low_bound,
+            from_session=session,
+        )
+
+
 def process_run_result(
-    in_file: str, answers_map: dict[str, Any], result_lst: Optional[list[dict[str, Any]]]
+    in_file: SessionLabel,
+    answers_map: dict[SessionLabel, str],
+    result_lst: Optional[list[dict[str, Any]]],
 ) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
-    result = RunResult(
+    result = BuildRunResult(
         answer="",
         verified=False,
         typical=None,
@@ -279,6 +301,7 @@ def process_run_result(
         high_bound=None,
         low_bound=None,
     )
+
     if result_lst is None:
         logger.info("No run result due to lack of container output. Did the container error out?")
         return None
@@ -300,10 +323,10 @@ def process_run_result(
             result.high_bound = blob["typical"]["upper_bound"]
             result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
-    return result
+    return RunResult.from_builder_and_session(result, in_file)
 
 
-def get_best_times(day: int) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
     """
     Get the current contents of the leaderboard for the given day. Results are returned as a
     tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
@@ -329,7 +352,8 @@ def year() -> int:
     return stamp.year
 
 
-def today() -> int:
+def today() -> AdventDay:
     """Return the current day, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return min(stamp.day, 25)
+    # SAFETY: day is always greater than 0, and we cap at 25
+    return cast(AdventDay, min(stamp.day, 25))
