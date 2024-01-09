@@ -148,12 +148,14 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-def get_input_files(day: int) -> list[str]:
+def get_input_files(day: int) -> list[SessionLabel]:
     """
     List all the input files that exist for the current day.
     """
     day_path = get_input_dir_for_day(day)
-    return [f for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))]
+    return [
+        SessionLabel(f) for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))
+    ]
 
 
 def load_input(tmp_dir: str, day: int, file_name: str) -> None:
@@ -182,7 +184,7 @@ def load_input(tmp_dir: str, day: int, file_name: str) -> None:
 
 
 async def run_code(
-    author_name: str, author_id: int, tmp_dir: str, in_file: str
+    author_name: str, author_id: int, tmp_dir: str, in_file: SessionLabel, /
 ) -> Optional[list[dict[str, Any]]]:
     """
     Designed to be used with a basic rust container. Given the code already
@@ -261,12 +263,13 @@ class RunResult:
     verified: bool
     typical: Picoseconds
     average: Picoseconds
-    median: Picoseconds
+    median: Picoseconds  # this is the one we put in the database
     high_bound: Picoseconds
     low_bound: Picoseconds
+    from_session: SessionLabel
 
     @classmethod
-    def from_builder(cls, b: BuildRunResult) -> Self:
+    def from_builder_and_session(cls, b: BuildRunResult, session: SessionLabel) -> Self:
         typical, average, median, high_bound, low_bound = map(
             from_ns, [b.typical, b.average, b.median, b.high_bound, b.low_bound]
         )
@@ -279,11 +282,14 @@ class RunResult:
             median=median,
             high_bound=high_bound,
             low_bound=low_bound,
+            from_session=session,
         )
 
 
 def process_run_result(
-    in_file: str, answers_map: dict[SessionLabel, str], result_lst: Optional[list[dict[str, Any]]]
+    in_file: SessionLabel,
+    answers_map: dict[SessionLabel, str],
+    result_lst: Optional[list[dict[str, Any]]],
 ) -> Optional[RunResult]:
     """Given JSON blobs extracted from a container's stdout, get the core stats out."""
     result = BuildRunResult(
@@ -306,7 +312,7 @@ def process_run_result(
         elif reason == "ferris-answer":
             answer = blob["answer"]
             result.answer = answer
-            if answers_map.get(SessionLabel(in_file), None) == answer:
+            if answers_map.get(in_file, None) == answer:
                 result.verified = True
             else:
                 result.verified = False
@@ -317,7 +323,7 @@ def process_run_result(
             result.high_bound = blob["typical"]["upper_bound"]
             result.low_bound = blob["typical"]["lower_bound"]
     logger.info("Computed run result: %s", result)
-    return RunResult.from_builder(result)
+    return RunResult.from_builder_and_session(result, in_file)
 
 
 def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
