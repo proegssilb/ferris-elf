@@ -2,6 +2,7 @@ import sqlite3
 from typing import TYPE_CHECKING, Iterator, Literal, NewType, Optional, Self, TypeAlias, cast
 from dataclasses import dataclass
 import gzip
+import statistics
 
 import config
 
@@ -15,6 +16,7 @@ AdventDay: TypeAlias = Literal[
 AdventPart: TypeAlias = Literal[1, 2]
 
 SessionLabel = NewType("SessionLabel", str)
+SubmissionId = NewType("SubmissionId", int)
 
 
 def format_picos(ts: float | int) -> str:
@@ -204,13 +206,13 @@ class Database:
 
     def save_submission(
         self, author_id: int, year: int, day: AdventDay, part: AdventPart, code: bytes, /
-    ) -> int:
+    ) -> SubmissionId:
         """
         Saves a benchmark submission to the database
         this will insert a NULL into the average_time field,
         it should be filled when all benchmarks are completed
 
-        Returns the unique submission_id that was generated for this submission
+        Returns the unique SubmissionId that was generated for this submission
         """
 
         # TODO(ultrabear): assuming we are using the latest container
@@ -232,22 +234,60 @@ class Database:
         # must be non null after successful .execute call
         assert rowid is not None
 
-        return rowid
+        return SubmissionId(rowid)
 
     def save_bench_result(
-        self, submission_id: int, input_used: SessionLabel, avg_time: Picoseconds, answer: str, /
-    ) -> None:
-        raise NotImplementedError
+        self,
+        submission_id: SubmissionId,
+        input_used: SessionLabel,
+        avg_time: Picoseconds,
+        answer: str,
+        /,
+    ) -> Optional[bool]:
+        """
+        Saves result of a benchmarking run to the database, returns
+        True if answer was valid, False if it was not valid, and None if the answer
+        was not available to check
+        """
 
-    def process_submission_average_time(self, submission_id: int, /) -> None:
+        self._cursor.execute(
+            "INSERT INTO benchmark_runs (submission, session_label, average_time, answer) VALUES (?, ?, ?, ?)",
+            (submission_id, input_used, avg_time.as_picos(), answer),
+        )
+
+        # TODO(ultrabear): we should also add answer validity checks here, and process_submission_average_time should take that into account
+
+        return None
+
+    def process_submission_average_time(self, submission_id: SubmissionId, /) -> None:
         """
         Processes a submissions average time based on all benched results,
-        updating the submissions table in the database
+        updating the submissions table in the database, this will also update best_runs
 
-        This shuold be called once all benchmarks have completed
+        This shuold be called once all benchmarks for this submission have completed
         """
 
-        raise NotImplementedError
+        # assumption: floats have a mantissa of 53 bits, we lock submissions to a max of 1s
+        # 1s is approximately 40 bits, therefore we lose no single picosecond precision in
+        # this calculation. Even if we did lose some precision, that is ok because we only
+        # care about the most significant parts of the benchmark result anyways, i/e if
+        # two solutions are taking 100s of microseconds each, its not changing much if
+        # the picoseconds are not perfect, in this way floats are well suited to what we are doing
+        picos = statistics.mean(
+            float(avg)
+            for (avg,) in self._cursor.execute(
+                "SELECT average_time FROM benchmark_runs WHERE (submission = ?)", (submission_id,)
+            )
+        )
+
+        rounded = int(round(picos))
+
+        self._cursor.execute(
+            "UPDATE submissions SET average_time = ? WHERE submission_id = ?",
+            (rounded, submission_id),
+        )
+
+        # TODO(ultrabear): also update best_runs based on validity
 
     def save_results(
         self,
@@ -261,13 +301,16 @@ class Database:
     ) -> None:
         """
         Save the benchmark run results to the DB.
+
+        Legacy API, future code should call save_submission,
+        asynchronously save_bench_result for each bench,
+        and then finish with process_submission_average_time
         """
 
         id = self.save_submission(author_id, year, day, part, code)
 
-        # problem: RunResult does not store session_label in it
-        # goal:
-        # for res in results: self.save_bench_result(id, label, res.average, res.answer)
+        for res in results:
+            self.save_bench_result(id, res.from_session, res.median, str(res.answer))
 
         self.process_submission_average_time(id)
 
@@ -285,14 +328,14 @@ class Database:
         )
 
     def get_user_submissions(
-        self, year: int, day: int, part: int, user_id: int, /
+        self, year: int, day: AdventDay, part: AdventPart, user_id: int, /
     ) -> list[BenchedSubmission]:
         raise NotImplementedError
 
-    def get_submission_by_id(self, submission_id: int, /) -> Optional[BenchedSubmission]:
+    def get_submission_by_id(self, submission_id: SubmissionId, /) -> Optional[BenchedSubmission]:
         raise NotImplementedError
 
-    def mark_submission_invalid(self, submission_id: int, /) -> bool:
+    def mark_submission_invalid(self, submission_id: SubmissionId, /) -> bool:
         raise NotImplementedError
 
     def in_guild(self, guild_id: int, /) -> GuildDatabase:
