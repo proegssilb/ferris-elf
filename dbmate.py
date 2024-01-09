@@ -1,3 +1,4 @@
+#!/bin/env python
 """
 A wrapper around dbmate that uses this projects settings to automatically set the database location parameter
 dbmate can be found at: https://github.com/amacneil/dbmate
