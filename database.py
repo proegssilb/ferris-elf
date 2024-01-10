@@ -1,5 +1,15 @@
 import sqlite3
-from typing import TYPE_CHECKING, Iterator, Literal, NewType, Optional, Self, TypeAlias, cast
+from typing import (
+    TYPE_CHECKING,
+    Iterator,
+    Literal,
+    NewType,
+    Optional,
+    Self,
+    TypeAlias,
+    TypeVar,
+    cast,
+)
 from dataclasses import dataclass
 import gzip
 import statistics
@@ -87,6 +97,21 @@ class BenchedSubmission:
 
 class ContainerVersionError(Exception):
     __slots__ = ()
+
+
+_T = TypeVar("_T")
+
+
+def _unwrap(v: Optional[_T], typ: type[_T]) -> _T:
+    class NoneUnwrapError(Exception):
+        __slots__ = ()
+
+    if v is None:
+        raise NoneUnwrapError("unwrapped on a None value")
+
+    assert isinstance(v, typ)
+
+    return v
 
 
 class GuildDatabase:
@@ -255,16 +280,48 @@ class Database:
             (submission_id, input_used, avg_time.as_picos(), answer),
         )
 
-        # TODO(ultrabear): we should also add answer validity checks here, and process_submission_average_time should take that into account
+        year, day_part = _unwrap(
+            self._cursor.execute(
+                "SELECT year, day_part FROM submissions WHERE submission_id = ?", (submission_id,)
+            ).fetchone(),
+            tuple[int, int],
+        )
+
+        # for some reason mypy loses its beans and thinks year and day_part
+        # are not ints, despite the fact we said they were above, by using type-ignore
+        # mypy will warn us in the future when this is not needed
+        day, part = unpack_day_part(day_part)  # type: ignore[arg-type]
+
+        part_lit: Literal["answer_p1", "answer_p2"] = "answer_p1" if part == 1 else "answer_p2"
+
+        # this should always return a result, but the inner row value may be None
+        (known_answer,) = _unwrap(
+            self._cursor.execute(
+                f"SELECT {part_lit} FROM inputs WHERE (session_label = ? AND year = ? AND day = ?)",
+                (input_used, year, day),
+            ).fetchone(),
+            tuple[Optional[str]],
+        )
+
+        if known_answer is not None:
+            correct = known_answer == answer
+
+            if not correct:
+                self._cursor.execute(
+                    "UPDATE submissions SET valid = 0 WHERE submission_id = ?", (submission_id,)
+                )
+
+            return correct
 
         return None
 
-    def process_submission_average_time(self, submission_id: SubmissionId, /) -> None:
+    def process_submission_average_time(self, submission_id: SubmissionId, /) -> bool:
         """
         Processes a submissions average time based on all benched results,
         updating the submissions table in the database, this will also update best_runs
 
-        This shuold be called once all benchmarks for this submission have completed
+        This should be called once all benchmarks for this submission have completed
+        Returns a bool indicating whether this run was valid, and thus considered for the leaderboard
         """
 
         # assumption: floats have a mantissa of 53 bits, we lock submissions to a max of 1s
@@ -282,12 +339,26 @@ class Database:
 
         rounded = int(round(picos))
 
-        self._cursor.execute(
-            "UPDATE submissions SET average_time = ? WHERE submission_id = ?",
-            (rounded, submission_id),
+        valid_i, user, year, day_part = _unwrap(
+            self._cursor.execute(
+                "UPDATE submissions SET average_time = ? WHERE submission_id = ? "
+                + "RETURNING valid, user, year, day_part",
+                (rounded, submission_id),
+            ).fetchone(),
+            tuple[int, str, int, int],
         )
 
-        # TODO(ultrabear): also update best_runs based on validity
+        valid = bool(valid_i)
+
+        if valid:
+            self._cursor.execute(
+                "REPLACE INTO best_runs "
+                + "SELECT user, year, day_part, MIN(average_time) AS best_time, submission_id AS run_id FROM submissions "
+                + "WHERE (year = ? AND day_part = ? AND valid = 1 AND user = ?)",
+                (year, day_part, user),
+            )
+
+        return valid
 
     def save_results(
         self,
