@@ -12,7 +12,6 @@ from typing import (
 )
 from dataclasses import dataclass
 import gzip
-import statistics
 
 import config
 
@@ -324,26 +323,19 @@ class Database:
         Returns a bool indicating whether this run was valid, and thus considered for the leaderboard
         """
 
-        # assumption: floats have a mantissa of 53 bits, we lock submissions to a max of 1s
+        # assumption: floats/REALs have a mantissa of 53 bits, we lock submissions to a max of 1s
         # 1s is approximately 40 bits, therefore we lose no single picosecond precision in
         # this calculation. Even if we did lose some precision, that is ok because we only
         # care about the most significant parts of the benchmark result anyways, i/e if
         # two solutions are taking 100s of microseconds each, its not changing much if
         # the picoseconds are not perfect, in this way floats are well suited to what we are doing
-        picos = statistics.mean(
-            float(avg)
-            for (avg,) in self._cursor.execute(
-                "SELECT average_time FROM benchmark_runs WHERE (submission = ?)", (submission_id,)
-            )
-        )
-
-        rounded = int(round(picos))
-
         valid_i, user, year, day_part = _unwrap(
             self._cursor.execute(
-                "UPDATE submissions SET average_time = ? WHERE submission_id = ? "
+                "UPDATE submissions SET average_time = CAST(result AS INTEGER) "
+                + "FROM ( SELECT AVG(CAST(average_time AS REAL)) AS result, submission FROM benchmark_runs WHERE (submission = ?) ) "
+                + "WHERE submission_id = submission "
                 + "RETURNING valid, user, year, day_part",
-                (rounded, submission_id),
+                (submission_id,),
             ).fetchone(),
             tuple[int, str, int, int],
         )
