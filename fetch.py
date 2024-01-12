@@ -1,3 +1,6 @@
+# NOTE: this is called in ops/systemd/ferris-elf-fetch.service
+# any changes to the CLI api should be reflected there
+
 import logging
 import argparse
 from typing import cast
