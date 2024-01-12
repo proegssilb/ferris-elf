@@ -316,16 +316,17 @@ def process_run_result(
     return RunResult.from_builder_and_session(result, in_file)
 
 
-def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+def get_best_times(
+    cur_year: Year, day: AdventDay
+) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
     """
     Get the current contents of the leaderboard for the given day. Results are returned as a
     tuple of lists, first for Part 1, then for Part 2. Each list is of (user_id, formatted_time).
     """
 
     with Database() as db:
-        # TODO dont hardcode year
-        times1 = [(user, str(time)) for user, time in db.best_times(year(), day, 1)]
-        times2 = [(user, str(time)) for user, time in db.best_times(year(), day, 2)]
+        times1 = [(user, str(time)) for user, time in db.best_times(cur_year, day, 1)]
+        times2 = [(user, str(time)) for user, time in db.best_times(cur_year, day, 2)]
 
     return (times1, times2)
 

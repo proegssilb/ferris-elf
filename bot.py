@@ -81,7 +81,7 @@ class Commands(commands.Cog):
                     formatted.write(f"\t{user.name}:  **{time}**\n")
             return formatted.getvalue()
 
-        (times1, times2) = lib.get_best_times(day)
+        (times1, times2) = lib.get_best_times(lib.year(), day)
         times1_str = await format_times(times1)
         times2_str = await format_times(times2)
         embed = discord.Embed(title=f"Top 10 fastest toboggans for day {day}", color=0xE84611)
