@@ -1,40 +1,67 @@
-from datetime import datetime
 import logging
-import os
-import os.path
-import sys
-from zoneinfo import ZoneInfo
+import argparse
+from typing import cast
 
 import requests
 
+import lib
 from config import settings
 from lib import today
+from database import AdventDay, Database
 
 keys = settings.aoc_auth.tokens
-aoc_base_dir = settings.aoc.inputs_dir
+db = Database()
 
 
 logger = logging.getLogger(__name__)
 
 
-def get(day: int) -> None:
+def get(year: int, day: AdventDay) -> None:
     logger.info("Fetching input for day %s", day)
-    day_dir = os.path.join(aoc_base_dir, str(day))
-    year = datetime.now(tz=ZoneInfo("America/New_York")).year
+
     for label, k in keys.items():
         r = requests.get(
             f"https://adventofcode.com/{year}/day/{day}/input", cookies=dict(session=k)
         )
         r.raise_for_status()
-        if not os.path.exists(day_dir):
-            os.makedirs(day_dir)
-        with open(os.path.join(day_dir, f"{label}.txt"), "wb+") as f:
-            f.write(r.content)
+
+        # require utf8 response
+        content = r.content.decode("utf8")
+
+        db.insert_input(label, year, day, content)
+
+
+def split_yd(data: str) -> tuple[int, AdventDay]:
+    res = data.split(":")
+
+    if len(res) == 2:
+        yd = int(res[0]), int(res[1])
+    elif res:
+        yd = lib.year(), int(res[0])
+    else:
+        raise RuntimeError("Unreachable!")
+
+    assert 1 <= yd[1] <= 25, "day not within valid range (1..=25)"
+
+    # SAFETY: just asserted above that yd[1] is in valid range
+    return cast(tuple[int, AdventDay], yd)
 
 
 if __name__ == "__main__":
     logging.basicConfig(encoding="utf-8", level=logging.INFO)
-    if len(sys.argv) > 1:
-        get(int(sys.argv[1]))
-    else:
-        get(today())
+
+    parser = argparse.ArgumentParser("aoc-fetch")
+    parser.add_argument(
+        "--download",
+        "-d",
+        const=str(today()),
+        nargs="?",
+        required=True,
+        help="download all inputs for a given day, defaults to current year and day, pass day or year:day to override",
+    )
+
+    parsed = parser.parse_args()
+
+    year, day = split_yd(parsed.download)
+
+    get(year, day)

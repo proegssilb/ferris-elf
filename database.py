@@ -390,6 +390,21 @@ class Database:
             for user, time in self._cursor.execute(query, (year, pack_day_part(day, part)))
         )
 
+    def insert_input(
+        self, session_label: SessionLabel, year: int, day: AdventDay, input_data: str
+    ) -> None:
+        """
+        Inserts an input into the database, input data is required to be passed as a utf8str
+        because all AOC inputs are valid UTF8 (and valid ascii for that matter)
+        """
+
+        comp_input = gzip.compress(input_data.encode("utf8"))
+
+        self._cursor.execute(
+            "INSERT INTO inputs (year, day, session_label, input) VALUES (?, ?, ?, ?)",
+            (year, day, session_label, comp_input),
+        )
+
     def get_user_submissions(
         self, year: int, day: AdventDay, part: AdventPart, user_id: int, /
     ) -> list[BenchedSubmission]:
