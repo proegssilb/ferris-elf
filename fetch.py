@@ -7,7 +7,7 @@ import requests
 import lib
 from config import settings
 from lib import today
-from database import AdventDay, Database
+from database import AdventDay, Database, Year
 
 keys = settings.aoc_auth.tokens
 db = Database()
@@ -16,7 +16,7 @@ db = Database()
 logger = logging.getLogger(__name__)
 
 
-def get(year: int, day: AdventDay) -> None:
+def get(year: Year, day: AdventDay) -> None:
     logger.info("Fetching input for day %s", day)
 
     for label, k in keys.items():
@@ -31,7 +31,7 @@ def get(year: int, day: AdventDay) -> None:
         db.insert_input(label, year, day, content)
 
 
-def split_yd(data: str) -> tuple[int, AdventDay]:
+def split_yd(data: str) -> tuple[Year, AdventDay]:
     res = data.split(":")
 
     if len(res) == 2:
@@ -44,7 +44,7 @@ def split_yd(data: str) -> tuple[int, AdventDay]:
     assert 1 <= yd[1] <= 25, "day not within valid range (1..=25)"
 
     # SAFETY: just asserted above that yd[1] is in valid range
-    return cast(tuple[int, AdventDay], yd)
+    return cast(tuple[Year, AdventDay], yd)
 
 
 if __name__ == "__main__":

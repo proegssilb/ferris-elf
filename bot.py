@@ -11,7 +11,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import AdventDay, AdventPart, Database
+from database import AdventDay, AdventPart, Database, Year
 from error_handler import ErrorHandlerCog
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,9 @@ class MyBot(commands.Bot):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.queue = asyncio.Queue[tuple[commands.Context[Any], AdventDay, AdventPart, bytes]]()
+        self.queue = asyncio.Queue[
+            tuple[commands.Context[Any], Year, AdventDay, AdventPart, bytes]
+        ]()
         # this is unusued ??
         self.db = Database()
 
@@ -111,7 +113,7 @@ class Commands(commands.Cog):
         )
 
         # using a tuple is probably the most readable but shut
-        self.bot.queue.put_nowait((ctx, day, part, await code.read()))
+        self.bot.queue.put_nowait((ctx, lib.year(), day, part, await code.read()))
 
         if ctx.interaction is not None:
             await ctx.interaction.edit_original_response(

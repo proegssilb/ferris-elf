@@ -17,7 +17,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
-from database import AdventDay, AdventPart, Database, Picoseconds, SessionLabel
+from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
 
 doc = docker.from_env()
 
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 async def benchmark(
     ctx: commands.Context[Any],
+    year: Year,
     day: AdventDay,
     part: AdventPart,
     code: bytes,
@@ -43,21 +44,19 @@ async def benchmark(
                 return
 
             with Database() as db:
-                # TODO dont hardcode 2023
-                answers_map = db.load_answers(2023, day, part)
+                answers_map = db.load_answers(year, day, part)
 
-            for in_file in get_input_files(day):
-                logger.info("Processing file: %s", in_file)
-                load_input(tmpdir, day, in_file)
-                result_lst = await run_code(op_name, op_id, tmpdir, in_file)
-                result = process_run_result(in_file, answers_map, result_lst)
-                if result is not None:
-                    results.append(result)
+                for in_file, contents in db.get_inputs(year, day).items():
+                    logger.info("Processing file: %s", in_file)
+                    load_input(tmpdir, contents)
+                    result_lst = await run_code(op_name, op_id, tmpdir, in_file)
+                    result = process_run_result(in_file, answers_map, result_lst)
+                    if result is not None:
+                        results.append(result)
 
             if results:
                 with Database() as db:
-                    # TODO dont hardcode 2023
-                    db.save_results(op_id, 2023, day, part, code, results)
+                    db.save_results(op_id, year, day, part, code, results)
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
@@ -148,21 +147,10 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
         return False
 
 
-def get_input_files(day: int) -> list[SessionLabel]:
-    """
-    List all the input files that exist for the current day.
-    """
-    day_path = get_input_dir_for_day(day)
-    return [
-        SessionLabel(f) for f in os.listdir(day_path) if os.path.isfile(os.path.join(day_path, f))
-    ]
-
-
-def load_input(tmp_dir: str, day: int, file_name: str) -> None:
+def load_input(tmp_dir: str, input_data: AocInput) -> None:
     """
     Populate tmp_dir with the input files for the requested year/day.
     """
-    day_path = get_input_dir_for_day(day)
     container_inputs_path = os.path.join(tmp_dir, "inputs")
 
     # Step 1: Clear out anything there
@@ -180,7 +168,9 @@ def load_input(tmp_dir: str, day: int, file_name: str) -> None:
             shutil.rmtree(path)
 
     # Step 2: Copy the appropriate file.
-    shutil.copy(os.path.join(day_path, file_name), container_inputs_path)
+
+    with open(os.path.join(container_inputs_path, input_data.label), "w") as fp:
+        fp.write(input_data.data)
 
 
 async def run_code(
@@ -334,8 +324,8 @@ def get_best_times(day: AdventDay) -> tuple[list[tuple[int, str]], list[tuple[in
 
     with Database() as db:
         # TODO dont hardcode year
-        times1 = [(user, str(time)) for user, time in db.best_times(2023, day, 1)]
-        times2 = [(user, str(time)) for user, time in db.best_times(2023, day, 2)]
+        times1 = [(user, str(time)) for user, time in db.best_times(year(), day, 1)]
+        times2 = [(user, str(time)) for user, time in db.best_times(year(), day, 2)]
 
     return (times1, times2)
 
@@ -346,10 +336,10 @@ def get_input_dir_for_day(day: int) -> str:
     return os.path.abspath(day_path)
 
 
-def year() -> int:
+def year() -> Year:
     """Return the current year, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return stamp.year
+    return Year(stamp.year)
 
 
 def today() -> AdventDay:

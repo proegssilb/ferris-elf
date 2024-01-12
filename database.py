@@ -26,6 +26,7 @@ AdventPart: TypeAlias = Literal[1, 2]
 
 SessionLabel = NewType("SessionLabel", str)
 SubmissionId = NewType("SubmissionId", int)
+Year = NewType("Year", int)
 
 
 def format_picos(ts: float | int) -> str:
@@ -186,6 +187,16 @@ def _load_initial_schema(cur: sqlite3.Cursor) -> None:
     # everything else should be handled by dbmate
 
 
+@dataclass(slots=True)
+class AocInput:
+    year: Year
+    day: AdventDay
+    label: SessionLabel
+    data: str
+    p1_answer: Optional[str]
+    p2_answer: Optional[str]
+
+
 class Database:
     __slots__ = ("_cursor", "_auto_commit")
 
@@ -211,7 +222,7 @@ class Database:
             self._cursor.connection.commit()
 
     def load_answers(
-        self, year: int, day: AdventDay, part: AdventPart, /
+        self, year: Year, day: AdventDay, part: AdventPart, /
     ) -> dict[SessionLabel, str]:
         """Load the expected answers for each input file, if they exist"""
 
@@ -229,7 +240,7 @@ class Database:
         return result
 
     def save_submission(
-        self, author_id: int, year: int, day: AdventDay, part: AdventPart, code: bytes, /
+        self, author_id: int, year: Year, day: AdventDay, part: AdventPart, code: bytes, /
     ) -> SubmissionId:
         """
         Saves a benchmark submission to the database
@@ -355,7 +366,7 @@ class Database:
     def save_results(
         self,
         author_id: int,
-        year: int,
+        year: Year,
         day: AdventDay,
         part: AdventPart,
         code: bytes,
@@ -378,7 +389,7 @@ class Database:
         self.process_submission_average_time(id)
 
     def best_times(
-        self, year: int, day: AdventDay, part: AdventPart, /
+        self, year: Year, day: AdventDay, part: AdventPart, /
     ) -> Iterator[tuple[int, Picoseconds]]:
         """Gets the best times for a given day/part, returning a user_id+timestamp in sorted by lowest time first order"""
 
@@ -391,7 +402,7 @@ class Database:
         )
 
     def insert_input(
-        self, session_label: SessionLabel, year: int, day: AdventDay, input_data: str
+        self, session_label: SessionLabel, year: Year, day: AdventDay, input_data: str
     ) -> None:
         """
         Inserts an input into the database, input data is required to be passed as a utf8str
@@ -405,8 +416,23 @@ class Database:
             (year, day, session_label, comp_input),
         )
 
+    def get_inputs(self, year: Year, day: AdventDay) -> dict[SessionLabel, AocInput]:
+        """
+        Returns all inputs stored in the database for the given day
+        """
+
+        return {
+            SessionLabel(label): AocInput(
+                year, day, SessionLabel(label), gzip.decompress(data).decode("utf8"), p1, p2
+            )
+            for label, data, p1, p2 in self._cursor.execute(
+                "SELECT session_label, input, answer_p1, answer_p2 FROM inputs WHERE (year = ? AND day = ?)",
+                (year, day),
+            )
+        }
+
     def get_user_submissions(
-        self, year: int, day: AdventDay, part: AdventPart, user_id: int, /
+        self, year: Year, day: AdventDay, part: AdventPart, user_id: int, /
     ) -> list[BenchedSubmission]:
         raise NotImplementedError
 
