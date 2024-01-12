@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 from typing import (
     TYPE_CHECKING,
@@ -87,12 +88,27 @@ class Picoseconds(int):
 
 
 @dataclass(slots=True, frozen=True)
-class BenchedSubmission:
-    run_id: int
-    user_id: int
+class BenchmarkRun:
+    submission: SubmissionId
     run_time: Picoseconds
+    label: SessionLabel
+    answer: str
+    completed_at: datetime.datetime
+
+
+@dataclass(slots=True, frozen=True)
+class Submission:
+    id: SubmissionId
+    user_id: int
+    year: Year
+    day: AdventDay
+    part: AdventPart
+    average_time: Optional[Picoseconds]
     code: str
     valid: bool
+    submitted_at: datetime.datetime
+    bencher_version: int
+    benches: list[BenchmarkRun]
 
 
 class ContainerVersionError(Exception):
@@ -195,6 +211,10 @@ class AocInput:
     data: str
     p1_answer: Optional[str]
     p2_answer: Optional[str]
+
+
+def dt_from_unix(unix: int) -> datetime.datetime:
+    return datetime.datetime.fromtimestamp(unix, tz=datetime.timezone.utc)
 
 
 class Database:
@@ -354,14 +374,25 @@ class Database:
         valid = bool(valid_i)
 
         if valid:
-            self._cursor.execute(
-                "REPLACE INTO best_runs "
-                + "SELECT user, year, day_part, MIN(average_time) AS best_time, submission_id AS run_id FROM submissions "
-                + "WHERE (year = ? AND day_part = ? AND valid = 1 AND user = ?)",
-                (year, day_part, user),
-            )
+            # mypy is unable to read the _unwrap tuple definition, and thinks our day_part is unknown
+            day, part = unpack_day_part(day_part)  # type: ignore[arg-type]
+            # mypy is unable to read the _unwrap tuple definition, and thinks our year/user is unknown
+            self.refresh_user_best_runs(year, day, part, user)  # type: ignore[arg-type]
 
         return valid
+
+    def refresh_user_best_runs(
+        self, year: Year, day: AdventDay, part: AdventPart, user_id: int
+    ) -> None:
+        """
+        Flushes the best_runs table for a given user and year-day-part, used when inserting new entries or when marking submissions invalid
+        """
+        self._cursor.execute(
+            "REPLACE INTO best_runs "
+            + "SELECT user, year, day_part, MIN(average_time) AS best_time, submission_id AS run_id FROM submissions "
+            + "WHERE (year = ? AND day_part = ? AND valid = 1 AND user = ?)",
+            (year, pack_day_part(day, part), user_id),
+        )
 
     def save_results(
         self,
@@ -433,14 +464,93 @@ class Database:
 
     def get_user_submissions(
         self, year: Year, day: AdventDay, part: AdventPart, user_id: int, /
-    ) -> list[BenchedSubmission]:
-        raise NotImplementedError
+    ) -> list[Submission]:
+        out = []
 
-    def get_submission_by_id(self, submission_id: SubmissionId, /) -> Optional[BenchedSubmission]:
-        raise NotImplementedError
+        for id, avg_time, code, valid, submitted_at, bencher_version in self._cursor.execute(
+            "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version FROM submissions WHERE (year = ? AND day_part = ? AND user = ?)",
+            (year, pack_day_part(day, part), str(user_id)),
+        ):
+            benches = list[BenchmarkRun](
+                BenchmarkRun(
+                    id, Picoseconds(average_time), label, answer, dt_from_unix(completed_at)
+                )
+                for label, average_time, answer, completed_at in self._cursor.execute(
+                    "SELECT session_label, average_time, answer, completed_at FROM benchmark_runs WHERE (submission = ?)",
+                    (id,),
+                )
+            )
 
-    def mark_submission_invalid(self, submission_id: SubmissionId, /) -> bool:
-        raise NotImplementedError
+            out.append(
+                Submission(
+                    id,
+                    user_id,
+                    year,
+                    day,
+                    part,
+                    Picoseconds(avg_time) if avg_time is not None else None,
+                    gzip.decompress(code).decode("utf8"),
+                    valid,
+                    dt_from_unix(submitted_at),
+                    bencher_version,
+                    benches,
+                )
+            )
+
+        return out
+
+    def get_submission_by_id(self, id: SubmissionId, /) -> Optional[Submission]:
+        if (
+            res := self._cursor.execute(
+                "SELECT year, day_part, user, average_time, code, valid, submitted_at, bencher_version FROM submissions WHERE (submission_id = ?)",
+                (id,),
+            ).fetchone()
+        ) is not None:
+            year, day_part, user_id, avg_time, code, valid, submitted_at, bencher_version = res
+
+            benches = list[BenchmarkRun](
+                BenchmarkRun(
+                    id, Picoseconds(average_time), label, answer, dt_from_unix(completed_at)
+                )
+                for label, average_time, answer, completed_at in self._cursor.execute(
+                    "SELECT session_label, average_time, answer, completed_at FROM benchmark_runs WHERE (submission = ?)",
+                    (id,),
+                )
+            )
+
+            day, part = unpack_day_part(day_part)
+
+            return Submission(
+                id,
+                user_id,
+                year,
+                day,
+                part,
+                Picoseconds(avg_time) if avg_time is not None else None,
+                gzip.decompress(code).decode("utf8"),
+                valid,
+                dt_from_unix(submitted_at),
+                bencher_version,
+                benches,
+            )
+
+        return None
+
+    def mark_submission_invalid(self, submission_id: SubmissionId, /) -> None:
+        """
+        Marks a submission invalid, also removes from best_runs table if it existed there
+        """
+        if (
+            res := self._cursor.execute(
+                "UPDATE submissions SET valid = 0 WHERE submission_id = ? RETURNING year, day_part, user",
+                (submission_id,),
+            ).fetchone()
+        ) is not None:
+            year, day_part, user = res
+
+            day, part = unpack_day_part(day_part)
+
+            self.refresh_user_best_runs(year, day, part, user)
 
     def in_guild(self, guild_id: int, /) -> GuildDatabase:
         return GuildDatabase(self, guild_id)
