@@ -331,12 +331,6 @@ def get_best_times(
     return (times1, times2)
 
 
-def get_input_dir_for_day(day: int) -> str:
-    """Return the exact directory that contains the input files for the given day."""
-    day_path = os.path.join(settings.aoc.inputs_dir, str(day))
-    return os.path.abspath(day_path)
-
-
 def year() -> Year:
     """Return the current year, as AOC code should understand it."""
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
