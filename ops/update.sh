@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
 git fetch
+poetry run python dbmate.py up
 
 CURR_REV=$(git rev-parse --verify HEAD)
 REMOTE_REV=$(git rev-parse --verify HEAD@{u})    # https://stackoverflow.com/a/46516201/1819694

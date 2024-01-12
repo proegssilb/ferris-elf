@@ -4,6 +4,8 @@ A wrapper around dbmate that uses this projects settings to automatically set th
 dbmate can be found at: https://github.com/amacneil/dbmate
 """
 
+# NOTE: This script is run in ops/update.sh
+
 from config import settings
 
 import subprocess
