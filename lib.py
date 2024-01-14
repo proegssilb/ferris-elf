@@ -330,23 +330,28 @@ def get_best_times(
     return (times1, times2)
 
 
-def year() -> int:
+def year() -> Year:
     """Return the current year, as AOC code should understand it."""
     # Our day-change happens at the same time as AOC. So, there's no point in
     # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     if stamp.month == 12:
-        return stamp.year
+        return cast(Year, stamp.year)
     else:
-        return stamp.year - 1
+        return cast(Year, stamp.year - 1)
 
 
-def today() -> int:
+def today() -> AdventDay:
     """Return the current day, as AOC code should understand it."""
     # Our day-change happens at the same time as AOC. So, there's no point in
     # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     if stamp.month == 12:
-        return min(stamp.day, constants.MAX_DAY)
+        day = min(stamp.day, constants.MAX_DAY)
+        # Satisfy the type-checker
+        assert day > 0
+        return cast(AdventDay, day)
     else:
-        return constants.MAX_DAY
+        # `constants` should be in the right type already, but that'd require
+        # importing `database` in `constants`, which is backwards.
+        return cast(AdventDay, constants.MAX_DAY)
