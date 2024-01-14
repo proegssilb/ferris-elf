@@ -274,7 +274,10 @@ class Database:
         # TODO(ultrabear): assuming we are using the latest container
         # version is probably ok maybe but its also kinda bad
         # we should discuss this sometime idk
-        container_v = self._cursor.execute("SELECT MAX(id) FROM container_versions").fetchone()
+        (container_v,) = _unwrap(
+            self._cursor.execute("SELECT MAX(id) FROM container_versions").fetchone(),
+            tuple[Optional[int]],
+        )
 
         if container_v is None:
             raise ContainerVersionError("No container versions are initialized in the database")
