@@ -17,6 +17,7 @@ import docker
 from discord.ext import commands
 
 from config import settings
+import constants
 from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
 
 doc = docker.from_env()
@@ -329,14 +330,23 @@ def get_best_times(
     return (times1, times2)
 
 
-def year() -> Year:
+def year() -> int:
     """Return the current year, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    return Year(stamp.year)
+    if stamp.month == 12:
+        return stamp.year
+    else:
+        return stamp.year - 1
 
 
-def today() -> AdventDay:
+def today() -> int:
     """Return the current day, as AOC code should understand it."""
+    # Our day-change happens at the same time as AOC. So, there's no point in
+    # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
-    # SAFETY: day is always greater than 0, and we cap at 25
-    return cast(AdventDay, min(stamp.day, 25))
+    if stamp.month == 12:
+        return min(stamp.day, constants.MAX_DAY)
+    else:
+        return constants.MAX_DAY
