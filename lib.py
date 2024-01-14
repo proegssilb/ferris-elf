@@ -54,9 +54,7 @@ async def benchmark(
                     if result is not None:
                         results.append(result)
 
-            if results:
-                with Database() as db:
-                    db.save_results(op_id, year, day, part, code, results)
+                db.save_results(op_id, year, day, part, code, results)
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
