@@ -179,7 +179,7 @@ class GuildDatabase:
 
 def pack_day_part(day: AdventDay, part: AdventPart) -> int:
     assert 1 <= part <= 2, "part was not 1 or 2, aborting before packing causes corruption"
-    return (day - 1 << 1) & (part - 1)
+    return (day - 1 << 1) | (part - 1)
 
 
 def unpack_day_part(packed: int) -> tuple[AdventDay, AdventPart]:
