@@ -119,14 +119,12 @@ class ContainerVersionError(Exception):
 _T = TypeVar("_T")
 
 
-def _unwrap(v: Optional[_T], typ: type[_T]) -> _T:
+def _unwrap(v: Optional[_T], _typ: type[_T]) -> _T:
     class NoneUnwrapError(Exception):
         __slots__ = ()
 
     if v is None:
         raise NoneUnwrapError("unwrapped on a None value")
-
-    assert isinstance(v, typ)
 
     return v
 
