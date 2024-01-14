@@ -28,6 +28,7 @@ AdventPart: TypeAlias = Literal[1, 2]
 SessionLabel = NewType("SessionLabel", str)
 SubmissionId = NewType("SubmissionId", int)
 Year = NewType("Year", int)
+ContainerVersionId = NewType("ContainerVersionId", int)
 
 
 def format_picos(ts: float | int) -> str:
@@ -107,7 +108,7 @@ class Submission:
     code: str
     valid: bool
     submitted_at: datetime.datetime
-    bencher_version: int
+    bencher_version: ContainerVersionId
     benches: list[BenchmarkRun]
 
 
@@ -492,7 +493,7 @@ class Database:
                     gzip.decompress(code).decode("utf8"),
                     valid,
                     dt_from_unix(submitted_at),
-                    bencher_version,
+                    ContainerVersionId(bencher_version),
                     benches,
                 )
             )
@@ -551,6 +552,17 @@ class Database:
             day, part = unpack_day_part(day_part)
 
             self.refresh_user_best_runs(year, day, part, user)
+
+    def insert_container_version(
+        self, rustc_ver: str, container_version: str, bench_format: int, bench_dir: bytes, /
+    ) -> ContainerVersionId:
+        id = self._cursor.execute(
+            "INSERT INTO container_versions (rustc_version, container_version, benchmark_format, bench_directory) VALUES (?, ?, ?, ?)",
+            (rustc_ver, container_version, bench_format, bench_dir),
+        ).lastrowid
+
+        assert id is not None
+        return ContainerVersionId(id)
 
     def in_guild(self, guild_id: int, /) -> GuildDatabase:
         return GuildDatabase(self, guild_id)
