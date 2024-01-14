@@ -119,12 +119,15 @@ class ContainerVersionError(Exception):
 _T = TypeVar("_T")
 
 
-def _unwrap(v: Optional[_T], _typ: type[_T]) -> _T:
+def _unwrap(v: Optional[_T], _typ: type[_T], msg: Optional[object] = None) -> _T:
     class NoneUnwrapError(Exception):
         __slots__ = ()
 
     if v is None:
-        raise NoneUnwrapError("unwrapped on a None value")
+        if msg is None:
+            raise NoneUnwrapError("unwrapped on a None value")
+        else:
+            raise NoneUnwrapError(msg)
 
     return v
 
@@ -275,6 +278,7 @@ class Database:
         (container_v,) = _unwrap(
             self._cursor.execute("SELECT MAX(id) FROM container_versions").fetchone(),
             tuple[Optional[int]],
+            "this is impossible, MAX always returns some result",
         )
 
         if container_v is None:
@@ -317,6 +321,7 @@ class Database:
                 "SELECT year, day_part FROM submissions WHERE submission_id = ?", (submission_id,)
             ).fetchone(),
             tuple[int, int],
+            "submission_id did not exist in database",
         )
 
         # for some reason mypy loses its beans and thinks year and day_part
@@ -333,6 +338,7 @@ class Database:
                 (input_used, year, day),
             ).fetchone(),
             tuple[Optional[str]],
+            "no inputs row exists for this session_label,year,day combination, even though we got a session_label from it earlier",
         )
 
         if known_answer is not None:
@@ -371,6 +377,7 @@ class Database:
                 (submission_id,),
             ).fetchone(),
             tuple[int, str, int, int],
+            "process_submission_average_time was called, but there were no benchmark_run entries for this submission",
         )
 
         valid = bool(valid_i)
