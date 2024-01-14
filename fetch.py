@@ -13,7 +13,6 @@ from lib import today
 from database import AdventDay, Database, Year
 
 keys = settings.aoc_auth.tokens
-db = Database()
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,8 @@ def get(year: Year, day: AdventDay) -> None:
         # require utf8 response
         content = r.content.decode("utf8")
 
-        db.insert_input(label, year, day, content)
+        with Database() as db:
+            db.insert_input(label, year, day, content)
 
 
 def split_yd(data: str) -> tuple[Year, AdventDay]:
