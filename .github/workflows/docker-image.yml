@@ -17,7 +17,11 @@ jobs:
     - uses: actions/checkout@v3
     - id: dategen
       shell: bash
-      run: echo "docker-version=$(date +%s)" >> $GITHUB_OUTPUT
+      # First command grabs a date stamp
+      # Second grabs a line like `bench_format=4` from the Dockerfile
+      run: |
+        echo "docker-version=$(date +%s)" >> $GITHUB_OUTPUT
+        grep -F bench_format ./runner/Dockerfile | cut -d ' ' -f 2 | tr -d '"' >> $GITHUB_OUTPUT
     - name: Build & Publish the runner image
       uses: elgohr/Publish-Docker-Github-Action@v5
       with:
@@ -27,5 +31,6 @@ jobs:
         registry: ghcr.io
         default_branch: main
         workdir: runner
-        tags: "latest,${{ steps.dategen.outputs.docker-version }}"
+        # Tags: latest, 4, 4.1703023947
+        tags: "latest,${{ steps.dategen.outputs.bench_format }},${{ steps.dategen.outputs.bench_format }}.${{ steps.dategen.outputs.docker-version }}"
         no_push: ${{ github.event_name == 'pull_request' }}
