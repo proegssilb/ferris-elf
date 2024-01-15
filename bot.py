@@ -148,6 +148,23 @@ async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
     ]
 
 
+async def periodic_check() -> None:
+    # TODO: insert docker container version checking
+    pass
+
+
+async def periodic_check_caller() -> None:
+    while True:
+        try:
+            logger.info("calling periodic check function")
+            await periodic_check()
+        except Exception:
+            logger.exception("Unknown issue in periodic checking function.")
+
+        # call every 30 minutes
+        await asyncio.sleep(60 * 30)
+
+
 if __name__ == "__main__":
     logformat = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(
@@ -169,6 +186,7 @@ if __name__ == "__main__":
             "Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info."
         )
         sys.exit(1)
+
     bot = MyBot(
         intents=intents,
         command_prefix=prefix,
@@ -182,4 +200,14 @@ if __name__ == "__main__":
             everyone=False, users=True, roles=False, replied_user=True
         ),
     )
-    bot.run(settings.discord.bot_token, log_handler=None)
+
+    async def init(bot: discord.Client, token: str) -> None:
+        asyncio.create_task(periodic_check_caller())
+
+        async with bot:
+            await bot.start(token)
+
+    try:
+        asyncio.run(init(bot, settings.discord.bot_token))
+    except KeyboardInterrupt:
+        pass
