@@ -1,3 +1,4 @@
+from typing import Literal
 import discord
 from config import settings
 
@@ -69,4 +70,6 @@ Be kind and do not abuse :)""",
 
 LEADERBOARD_FOOTER = "Need help? DM me /help or /info to get started."
 
-MAX_DAY = 25
+# Type checking needs to be told this is a literal (and the exact value), else
+# it just assumes an int.
+MAX_DAY: Literal[25] = 25

@@ -336,9 +336,9 @@ def year() -> Year:
     # changing the season until 12am Dec 1.
     stamp = datetime.now(tz=ZoneInfo("America/New_York"))
     if stamp.month == 12:
-        return cast(Year, stamp.year)
+        return Year(stamp.year)
     else:
-        return cast(Year, stamp.year - 1)
+        return Year(stamp.year - 1)
 
 
 def today() -> AdventDay:
@@ -352,6 +352,4 @@ def today() -> AdventDay:
         assert day > 0
         return cast(AdventDay, day)
     else:
-        # `constants` should be in the right type already, but that'd require
-        # importing `database` in `constants`, which is backwards.
-        return cast(AdventDay, constants.MAX_DAY)
+        return constants.MAX_DAY
