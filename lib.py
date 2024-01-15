@@ -12,15 +12,14 @@ from datetime import datetime
 from typing import Any, Optional, cast, Self
 from zoneinfo import ZoneInfo
 
-import discord
 import docker
+import discord
 from discord.ext import commands
 
 from config import settings
 import constants
 from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
-
-doc = docker.from_env()
+from runner import run_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +79,6 @@ async def benchmark(
     except Exception:
         logger.exception(f"Unhandled exception while benchmarking day {day}, part {part}.")
         await ctx.reply(f"Unhandled exception while benchmarking day {day}, part {part}.")
-        # with io.BytesIO() as buf:
-        #     buf.write(bytes(''.join(
-        #         traceback.format_exception(e)), encoding='utf8'))
-        #     buf.seek(0)
-        #     errtxt = (f"Unhandled exception while benchmarking day {day}, part {part}: `{get_full_class_name(e)}`: "
-        #               f"`{e}`")[:2000]
-        #     await ctx.reply(errtxt, file=discord.File(buf, filename="traceback.txt"))
 
 
 def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
@@ -119,26 +111,15 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
     """
     logger.info("Running container to build code for %s", author_id)
     try:
-        loop = asyncio.get_event_loop()
-        out = await loop.run_in_executor(
-            None,
-            functools.partial(
-                doc.containers.run,
-                settings.docker.container_ref,
-                "timeout --kill-after=5s 30s cargo build",
-                remove=True,
-                stdout=True,
-                mem_limit="8g",
-                network_mode="none",
-                # Don't mount the inputs directory here for defense-in-depth
-                volumes={
+        out = await run_cmd(
+            "timeout --kill-after=5s 30s cargo build",
+            {},
+            vols={
                     os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
                     os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
                     os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
                 },
-            ),
         )
-        out = out.decode("utf-8")
         logger.debug("Build container output: %s", out)
         return True
     except docker.errors.ContainerError:
@@ -182,30 +163,18 @@ async def run_code(
     in_file_name = os.path.join("/app", "inputs", in_file)
     logger.info("Running container to run code for %s", author_id)
     try:
-        loop = asyncio.get_event_loop()
-        raw_out = await loop.run_in_executor(
-            None,
-            functools.partial(
-                doc.containers.run,
-                settings.docker.container_ref,
-                "timeout --kill-after=15s 120s cargo criterion --message-format=json",
-                environment={
+        out = await run_cmd(
+            "timeout --kill-after=15s 120s cargo criterion --message-format=json",
+            env={
                     "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
                 },
-                remove=True,
-                stdout=True,
-                stderr=True,
-                mem_limit="8g",
-                network_mode="none",
-                volumes={
+            vols={
                     os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
                     os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
                     os.path.join(tmp_dir, "inputs"): {"bind": "/app/inputs", "mode": "rw"},
                     os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
-                },
-            ),
+                }
         )
-        out: str = raw_out.decode("utf-8")
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
         results = list[dict[str, Any]]()
 
