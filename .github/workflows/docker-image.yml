@@ -5,7 +5,11 @@ on:
     branches: [ "main" ]
   pull_request: {}
   schedule:
-    - cron:  '27 4,17 * * *'
+    - cron:  '27 4,17 1-26 12 *'
+    - cron:  '27 13 27-31 12 *'
+    - cron:  '27 4,17 29,30 11 *'
+    - cron:  '27 13 1-28 11 *'
+    - cron:  '27 13 */7 1-10 *'
 
 permissions:
   packages: write
