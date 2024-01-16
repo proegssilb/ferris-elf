@@ -115,10 +115,10 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
             "timeout --kill-after=5s 30s cargo build",
             {},
             vols={
-                    os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
-                    os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
-                    os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
-                },
+                os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
+                os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
+                os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
+            },
         )
         logger.debug("Build container output: %s", out)
         return True
@@ -166,14 +166,14 @@ async def run_code(
         out = await run_cmd(
             "timeout --kill-after=15s 120s cargo criterion --message-format=json",
             env={
-                    "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
-                },
+                "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,
+            },
             vols={
-                    os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
-                    os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
-                    os.path.join(tmp_dir, "inputs"): {"bind": "/app/inputs", "mode": "rw"},
-                    os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
-                }
+                os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
+                os.path.join(tmp_dir, "benches"): {"bind": "/app/benches", "mode": "rw"},
+                os.path.join(tmp_dir, "inputs"): {"bind": "/app/inputs", "mode": "rw"},
+                os.path.join(tmp_dir, "target"): {"bind": "/app/target", "mode": "rw"},
+            },
         )
         logger.debug("Run container output (type: %s):\n%s", type(out), out)
         results = list[dict[str, Any]]()
