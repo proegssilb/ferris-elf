@@ -1,5 +1,3 @@
-import asyncio
-import functools
 import json
 import logging
 import os
@@ -16,7 +14,6 @@ import docker
 import discord
 from discord.ext import commands
 
-from config import settings
 import constants
 from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
 from runner import run_cmd
