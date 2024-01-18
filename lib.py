@@ -9,7 +9,7 @@ import statistics as stats
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, cast, Self
+from typing import Any, NoReturn, Optional, cast, Self
 from zoneinfo import ZoneInfo
 
 import discord
@@ -23,6 +23,11 @@ from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, Ses
 doc = docker.from_env()
 
 logger = logging.getLogger(__name__)
+
+
+def todo() -> NoReturn:
+    # TODO(ultrabear): remove this
+    raise NotImplementedError("we have TODO at home (not implemented yet)")
 
 
 async def benchmark(
@@ -55,9 +60,10 @@ async def benchmark(
                     if result is not None:
                         results.append(result)
 
-                db.save_results(op_id, year, day, part, code, results)
+                db.save_results(op_id, year, day, part, code, todo(), todo(), results)
 
-        verified_results = [r for r in results if r.verified]
+        # TODO: remove the type ignore when we remove the todo() calls above
+        verified_results = [r for r in results if r.verified]  # type: ignore[unreachable]
         if len(verified_results) > 0:
             median = stats.mean([r.median for r in verified_results])
             average = stats.mean([r.average for r in verified_results])

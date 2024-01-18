@@ -27,7 +27,7 @@ CREATE TABLE submissions (
   submitted_at INTEGER NOT NULL DEFAULT ( UNIXEPOCH() ),
 
   bencher_version INTEGER NOT NULL REFERENCES container_versions (id)
-) STRICT;
+, benchmark_format INTEGER NOT NULL DEFAULT ( 0 )) STRICT;
 CREATE INDEX submissions_index ON submissions (year, day_part, valid, user, average_time);
 CREATE TABLE benchmark_runs (
   submission INTEGER NOT NULL REFERENCES submissions (submission_id),
@@ -52,23 +52,6 @@ CREATE TABLE inputs (
 
   CONSTRAINT inputs_lookup UNIQUE (year, day, session_label)
 ) STRICT;
-CREATE TABLE container_versions (
-  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-  /* rustc version used as output by `rustc --version` */
-  rustc_version TEXT NOT NULL,
-  container_version TEXT NOT NULL UNIQUE,
-  /*
-    a high level indicator of the benchmarking setup used,
-    this should be incremented whenever the way the bencher
-    benches code changes in a way that affects results
-  */
-  benchmark_format INTEGER NOT NULL,
-  /*
-    gzipped tar archive of the default bencher workspace, including
-    Cargo.toml, Cargo.lock, and any rs files that were run
-  */
-  bench_directory BLOB NOT NULL
-) STRICT;
 CREATE TABLE guild_config (
   guild_id TEXT NOT NULL,
   config_name TEXT NOT NULL,
@@ -83,6 +66,25 @@ CREATE TABLE wrong_answers (
   answer TEXT NOT NULL
 ) STRICT;
 CREATE INDEX wrong_answers_cache ON wrong_answers (year, day_part, session_label, answer);
+CREATE TABLE container_versions (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  /* rustc version used as output by `rustc --version` */
+  rustc_version TEXT NOT NULL,
+  container_version TEXT NOT NULL UNIQUE,
+
+  /* removed benchmark_format */
+
+  /*
+    gzipped tar archive of the default bencher workspace, including
+    Cargo.toml, Cargo.lock, and any rs files that were run
+  */
+  bench_directory BLOB NOT NULL,
+
+  /* NOTE: this is the new field */
+  creation_time INTEGER NOT NULL
+
+) STRICT;
 -- Dbmate schema migrations
 INSERT INTO "schema_migrations" (version) VALUES
-  ('20240108100950');
+  ('20240108100950'),
+  ('20240118045802');
