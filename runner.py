@@ -59,11 +59,11 @@ async def bg_update() -> None:
             rust_ver = await get_rust_version(image, ver)
 
             # Version processing
-            bench_format = 1
+            bench_format = "1"
             _stamp = None
             if "latest" == ver:
                 continue
-            if '.' in ver:
+            if "." in ver:
                 bench_format, _stamp = ver.split(".")
             else:
                 _stamp = ver
@@ -72,7 +72,7 @@ async def bg_update() -> None:
             with Database() as db:
                 # TODO: Figure out something to do with the bench_dir
                 db.insert_container_version(rust_ver.ver, ver, int(bench_format), b"")
-    
+
     logger.info("Background check finished.")
 
 
@@ -110,19 +110,22 @@ async def docker_hub_auth(session: ah.ClientSession, api_base: str, _repo: str) 
         return "Bearer " + token
 
 
-async def ghcr_auth_handler(session: ah.ClientSession, _api_base: str, repo: str):
+async def ghcr_auth_handler(session: ah.ClientSession, _api_base: str, repo: str) -> str:
     logging.info("Asked for github token for repo: %s", repo)
     scope = ":".join(["repo", repo, "pull"])
     url = "https://ghcr.io/token?" + urllib.parse.urlencode({"scope": scope})
     async with session.get(url, raise_for_status=True) as response:
         body = await response.json()
-        return "Bearer " + body["token"]
+        token: str = body["token"]
+        return "Bearer " + token
+
 
 async def default_auth_handler(_session: ah.ClientSession, _api_base: str, _repo: str) -> str:
-    return "Bearer " + settings.docker_auth.token
+    token: str = settings.docker_auth.token
+    return "Bearer " + token
 
 
-async def auth(session: ah.ClientSession, api_base: str, repo: str):
+async def auth(session: ah.ClientSession, api_base: str, repo: str) -> str:
     if api_base in API_URLs:
         # Callers are expected to delete items from AUTH_TOKENS when they get a 403.
         return AUTH_TOKENS[api_base]
@@ -137,6 +140,7 @@ async def auth(session: ah.ClientSession, api_base: str, repo: str):
     token = await handler(session, api_base, repo)
     AUTH_TOKENS[api_base] = token
     return token
+
 
 def _parse_image_ref(image_ref: str) -> urllib.parse.ParseResult:
     user_url = urllib.parse.urlparse(image_ref)
@@ -221,7 +225,6 @@ async def get_remote_blob(
     user_url = _parse_image_ref(image_ref)
     api_base = _get_api_base(image_ref)
     repo = user_url.path.strip("/")
-
 
     target_url = "/".join([api_base, user_url.path, "blobs", blob_hash])
 
