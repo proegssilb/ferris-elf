@@ -109,7 +109,7 @@ async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
     logger.info("Running container to build code for %s", author_id)
     try:
         out = await run_cmd(
-            "timeout --kill-after=5s 30s cargo build",
+            "timeout --kill-after=5s 90s cargo build --release",
             {},
             vols={
                 os.path.join(tmp_dir, "src"): {"bind": "/app/src", "mode": "rw"},
