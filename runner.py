@@ -45,7 +45,7 @@ async def bg_update() -> None:
     Background update task. Run periodically, or metadata about tags in the DB won't be correct.
     Definitely run on startup; startup is when the bench format change will first be noticed.
     """
-
+    logger.info("Starting background update.")
     image = settings.docker.container_ref
 
     async with ah.ClientSession() as session:
@@ -55,11 +55,25 @@ async def bg_update() -> None:
         with Database() as db:
             new_versions = db.pick_new_container_versions(tags)
         for ver in new_versions:
+            logger.info("Loading container version: %s", ver)
             rust_ver = await get_rust_version(image, ver)
-            bench_format, _stamp = ver.split(".")
+
+            # Version processing
+            bench_format = 1
+            _stamp = None
+            if "latest" == ver:
+                continue
+            if '.' in ver:
+                bench_format, _stamp = ver.split(".")
+            else:
+                _stamp = ver
+
+            # Save to DB
             with Database() as db:
                 # TODO: Figure out something to do with the bench_dir
                 db.insert_container_version(rust_ver.ver, ver, int(bench_format), b"")
+    
+    logger.info("Background check finished.")
 
 
 # --- Utils ---
@@ -70,34 +84,59 @@ RustVersion = namedtuple("RustVersion", "ver hash date")
 async def get_rust_version(image: str, tag: str) -> RustVersion:
     cmd = "rustc --version"
     out = await run_cmd(cmd, {}, {})
-    _, ver, d = out.split(" ")
-    git_hash, dstamp = d.strip("()").split(" ")
+    _, ver, git_hash, dstamp = out.split(" ")
+    git_hash = git_hash.strip("()")
+    dstamp = dstamp.strip("()")
     return RustVersion(ver, git_hash, dstamp)
 
 
 API_URLs = {
-    "ghcr.io": "https://docker.pkg.github.com/v2",
+    "ghcr.io": "https://ghcr.io/v2",
     "docker.io": "https://registry.hub.docker.com/v2",
 }
 
 AUTH_TOKENS: dict[str, str] = {}
 
 
-async def docker_hub_auth(session: ah.ClientSession, api_base: str) -> str:
+async def docker_hub_auth(session: ah.ClientSession, api_base: str, _repo: str) -> str:
     """Returns a Bearer Token you can use with further Docker Hub API requests."""
-    if api_base in API_URLs:
-        # Callers are expected to delete items from AUTH_TOKENS when they get a 403.
-        return AUTH_TOKENS[api_base]
-    auth_url = "/".join([api_base, "v2/users/login"])
-    headers = {"Accept", "application/json"}
+    auth_url = "/".join([api_base, "users/login"])
+    headers = {"Accept": "application/json"}
     auth_body = {"username": "ferris-elf", "password": settings.docker_auth.token}
     async with session.post(
         auth_url, json=auth_body, raise_for_status=True, headers=headers
     ) as response:
         token = await response.text()
-        AUTH_TOKENS[api_base] = token
         return "Bearer " + token
 
+
+async def ghcr_auth_handler(session: ah.ClientSession, _api_base: str, repo: str):
+    logging.info("Asked for github token for repo: %s", repo)
+    scope = ":".join(["repo", repo, "pull"])
+    url = "https://ghcr.io/token?" + urllib.parse.urlencode({"scope": scope})
+    async with session.get(url, raise_for_status=True) as response:
+        body = await response.json()
+        return "Bearer " + body["token"]
+
+async def default_auth_handler(_session: ah.ClientSession, _api_base: str, _repo: str) -> str:
+    return "Bearer " + settings.docker_auth.token
+
+
+async def auth(session: ah.ClientSession, api_base: str, repo: str):
+    if api_base in API_URLs:
+        # Callers are expected to delete items from AUTH_TOKENS when they get a 403.
+        return AUTH_TOKENS[api_base]
+
+    auth_handlers = {
+        "https://registry.hub.docker.com/v2": docker_hub_auth,
+        "https://ghcr.io/v2": ghcr_auth_handler,
+    }
+
+    handler = auth_handlers.get(api_base, default_auth_handler)
+
+    token = await handler(session, api_base, repo)
+    AUTH_TOKENS[api_base] = token
+    return token
 
 def _parse_image_ref(image_ref: str) -> urllib.parse.ParseResult:
     user_url = urllib.parse.urlparse(image_ref)
@@ -127,10 +166,11 @@ async def get_remote_tags(
 
     user_url = _parse_image_ref(image_ref)
     api_base = _get_api_base(image_ref)
+    repo = user_url.path.strip("/")
 
     target_url = "/".join([api_base, user_url.path, "tags/list"])
 
-    auth_token = auth_token or await docker_hub_auth(session, api_base)
+    auth_token = auth_token or await auth(session, api_base, repo)
     headers = {
         "Authorization": auth_token,
         "Accept": "application/vnd.docker.distribution.manifest.v2+json",
@@ -141,7 +181,7 @@ async def get_remote_tags(
         # TODO: This is actually a paginated API. Need `async yield` + multiple requests.
         # Yeah, the typechecker has no way of confirming what's up.
         # The remote API could change at any time. Such is life.
-        rv: list[str] = (await response.json()).tags
+        rv: list[str] = (await response.json())["tags"]
         return rv
 
 
@@ -152,10 +192,11 @@ async def get_remote_manifest(
 
     user_url = _parse_image_ref(image_ref)
     api_base = _get_api_base(image_ref)
+    repo = user_url.path.strip("/")
 
     target_url = "/".join([api_base, user_url.path, "manifests", tag])
 
-    auth_token = auth_token or await docker_hub_auth(session, api_base)
+    auth_token = auth_token or await auth(session, api_base, repo)
     headers = {
         "Authorization": auth_token,
         "Accept": "application/vnd.docker.distribution.manifest.v2+json",
@@ -179,10 +220,12 @@ async def get_remote_blob(
     """Given a blob's hash, retrieve the contents of that blob."""
     user_url = _parse_image_ref(image_ref)
     api_base = _get_api_base(image_ref)
+    repo = user_url.path.strip("/")
+
 
     target_url = "/".join([api_base, user_url.path, "blobs", blob_hash])
 
-    auth_token = auth_token or await docker_hub_auth(session, api_base)
+    auth_token = auth_token or await auth(session, api_base, repo)
     headers = {
         "Authorization": auth_token,
         "Accept": "application/vnd.docker.distribution.manifest.v2+json",
