@@ -567,10 +567,7 @@ class Database:
         """
         query = "SELECT container_version FROM container_versions"
         res = self._cursor.execute(query).fetchall()
-        if res is None or len(res) == 0:
-            return set(versions)
-        present_versions = set(map(lambda x: x[0], res))
-        return versions.difference(present_versions)
+        return versions.difference({x[0] for x in res})
 
     def insert_container_version(
         self, rustc_ver: str, container_version: str, bench_format: int, bench_dir: bytes, /
