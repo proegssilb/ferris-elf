@@ -286,7 +286,7 @@ class Database:
 
         # unnamed fields are filled with default types
         rowid = self._cursor.execute(
-            "INSERT INTO submissions (user, year, day_part, code, bencher_version, benchmark_format) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO submissions (user, year, day_part, code, bencher_version, benchmark_format) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 str(author_id),
                 year,
