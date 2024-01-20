@@ -109,6 +109,7 @@ class Submission:
     valid: bool
     submitted_at: datetime.datetime
     bencher_version: ContainerVersionId
+    benchmark_format: int
     benches: list[BenchmarkRun]
 
 
@@ -262,7 +263,15 @@ class Database:
         return result
 
     def save_submission(
-        self, author_id: int, year: Year, day: AdventDay, part: AdventPart, code: bytes, /
+        self,
+        author_id: int,
+        year: Year,
+        day: AdventDay,
+        part: AdventPart,
+        code: bytes,
+        container_v: ContainerVersionId,
+        benchmark_format: int,
+        /,
     ) -> SubmissionId:
         """
         Saves a benchmark submission to the database
@@ -272,24 +281,19 @@ class Database:
         Returns the unique SubmissionId that was generated for this submission
         """
 
-        # TODO(ultrabear): assuming we are using the latest container
-        # version is probably ok maybe but its also kinda bad
-        # we should discuss this sometime idk
-        (container_v,) = _unwrap(
-            self._cursor.execute("SELECT MAX(id) FROM container_versions").fetchone(),
-            tuple[Optional[int]],
-            "this is impossible, MAX always returns some result",
-        )
-
-        if container_v is None:
-            raise ContainerVersionError("No container versions are initialized in the database")
-
         compressed = gzip.compress(code)
 
         # unnamed fields are filled with default types
         rowid = self._cursor.execute(
-            "INSERT INTO submissions (user, year, day_part, code, bencher_version) VALUES (?, ?, ?, ?, ?)",
-            (str(author_id), year, pack_day_part(day, part), compressed, container_v),
+            "INSERT INTO submissions (user, year, day_part, code, bencher_version, benchmark_format) VALUES (?, ?, ?, ?, ?)",
+            (
+                str(author_id),
+                year,
+                pack_day_part(day, part),
+                compressed,
+                container_v,
+                benchmark_format,
+            ),
         ).lastrowid
 
         # must be non null after successful .execute call
@@ -410,6 +414,8 @@ class Database:
         day: AdventDay,
         part: AdventPart,
         code: bytes,
+        container_version: ContainerVersionId,
+        benchmark_format: int,
         results: list["RunResult"],
         /,
     ) -> None:
@@ -421,7 +427,9 @@ class Database:
         and then finish with process_submission_average_time
         """
 
-        id = self.save_submission(author_id, year, day, part, code)
+        id = self.save_submission(
+            author_id, year, day, part, code, container_version, benchmark_format
+        )
 
         for res in results:
             self.save_bench_result(id, res.from_session, res.median, str(res.answer))
@@ -476,8 +484,16 @@ class Database:
     ) -> list[Submission]:
         out = []
 
-        for id, avg_time, code, valid, submitted_at, bencher_version in self._cursor.execute(
-            "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version FROM submissions WHERE (year = ? AND day_part = ? AND user = ?)",
+        for (
+            id,
+            avg_time,
+            code,
+            valid,
+            submitted_at,
+            bencher_version,
+            benchmark_format,
+        ) in self._cursor.execute(
+            "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version, benchmark_format FROM submissions WHERE (year = ? AND day_part = ? AND user = ?)",
             (year, pack_day_part(day, part), str(user_id)),
         ):
             benches = list[BenchmarkRun](
@@ -502,6 +518,7 @@ class Database:
                     valid,
                     dt_from_unix(submitted_at),
                     ContainerVersionId(bencher_version),
+                    int(benchmark_format),
                     benches,
                 )
             )
@@ -511,11 +528,21 @@ class Database:
     def get_submission_by_id(self, id: SubmissionId, /) -> Optional[Submission]:
         if (
             res := self._cursor.execute(
-                "SELECT year, day_part, user, average_time, code, valid, submitted_at, bencher_version FROM submissions WHERE (submission_id = ?)",
+                "SELECT year, day_part, user, average_time, code, valid, submitted_at, bencher_version, benchmark_format FROM submissions WHERE (submission_id = ?)",
                 (id,),
             ).fetchone()
         ) is not None:
-            year, day_part, user_id, avg_time, code, valid, submitted_at, bencher_version = res
+            (
+                year,
+                day_part,
+                user_id,
+                avg_time,
+                code,
+                valid,
+                submitted_at,
+                bencher_version,
+                benchmark_format,
+            ) = res
 
             benches = list[BenchmarkRun](
                 BenchmarkRun(
@@ -539,7 +566,8 @@ class Database:
                 gzip.decompress(code).decode("utf8"),
                 valid,
                 dt_from_unix(submitted_at),
-                bencher_version,
+                ContainerVersionId(bencher_version),
+                int(benchmark_format),
                 benches,
             )
 
@@ -570,11 +598,22 @@ class Database:
         return versions.difference({x[0] for x in res})
 
     def insert_container_version(
-        self, rustc_ver: str, container_version: str, bench_format: int, bench_dir: bytes, /
+        self,
+        rustc_ver: str,
+        container_version: str,
+        bench_dir: bytes,
+        timestamp: Optional[int] = None,
+        /,
     ) -> ContainerVersionId:
+        if timestamp is None:
+            if "." in container_version:
+                timestamp = int(container_version.split(".")[1])
+            else:
+                timestamp = int(container_version)
+
         id = self._cursor.execute(
-            "INSERT INTO container_versions (rustc_version, container_version, benchmark_format, bench_directory) VALUES (?, ?, ?, ?)",
-            (rustc_ver, container_version, bench_format, bench_dir),
+            "INSERT INTO container_versions (rustc_version, container_version, bench_directory, timestamp) VALUES (?, ?, ?, ?)",
+            (rustc_ver, container_version, bench_dir, timestamp),
         ).lastrowid
 
         assert id is not None
