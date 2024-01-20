@@ -29,6 +29,7 @@ SessionLabel = NewType("SessionLabel", str)
 SubmissionId = NewType("SubmissionId", int)
 Year = NewType("Year", int)
 ContainerVersionId = NewType("ContainerVersionId", int)
+ContainerTag = NewType("ContainerTag", str)
 
 
 def format_picos(ts: float | int) -> str:
@@ -589,6 +590,21 @@ class Database:
 
             self.refresh_user_best_runs(year, day, part, user)
 
+    def newest_container_version(
+        self, _bench_format: int
+    ) -> tuple[ContainerVersionId, ContainerTag]:
+        """
+        Find the latest container version that works with our code
+        """
+        query = "SELECT id, container_version FROM container_versions ORDER BY creation_time DESC LIMIT 1"
+
+        for row in self._cursor.execute(query):
+            # There's only one row anyway.
+            return ContainerVersionId(row[0]), ContainerTag(row[1])
+
+        # But what if there's no rows?
+        raise ContainerVersionError("No matching versions in database.")
+
     def pick_new_container_versions(self, versions: set[str]) -> set[str]:
         """
         Given a list of container versions, return those not in the DB already.
@@ -600,7 +616,7 @@ class Database:
     def insert_container_version(
         self,
         rustc_ver: str,
-        container_version: str,
+        container_version: ContainerTag,
         bench_dir: bytes,
         timestamp: Optional[int] = None,
         /,
@@ -612,7 +628,7 @@ class Database:
                 timestamp = int(container_version)
 
         id = self._cursor.execute(
-            "INSERT INTO container_versions (rustc_version, container_version, bench_directory, timestamp) VALUES (?, ?, ?, ?)",
+            "INSERT INTO container_versions (rustc_version, container_version, bench_directory, creation_time) VALUES (?, ?, ?, ?)",
             (rustc_ver, container_version, bench_dir, timestamp),
         ).lastrowid
 

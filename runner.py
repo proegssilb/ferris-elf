@@ -7,7 +7,7 @@ import urllib.parse
 
 import docker
 import aiohttp as ah
-from database import Database
+from database import Database, ContainerTag
 
 from config import settings
 
@@ -16,7 +16,9 @@ doc = docker.from_env()
 logger = logging.getLogger(__name__)
 
 
-async def run_cmd(cmd: str, env: dict[str, str], vols: dict[str, dict[str, str]]) -> str:
+async def run_cmd(
+    image: str, cmd: str, env: dict[str, str], vols: dict[str, dict[str, str]]
+) -> str:
     """
     Thin wrapper to simplify the Docker interface & provide secure defaults.
     """
@@ -25,7 +27,7 @@ async def run_cmd(cmd: str, env: dict[str, str], vols: dict[str, dict[str, str]]
         None,
         functools.partial(
             doc.containers.run,
-            settings.docker.container_ref,
+            image,
             cmd,
             environment=env,
             remove=True,
@@ -71,7 +73,7 @@ async def bg_update() -> None:
             # Save to DB
             with Database() as db:
                 # TODO: Figure out something to do with the bench_dir
-                db.insert_container_version(rust_ver.ver, ver, int(bench_format), b"")
+                db.insert_container_version(rust_ver.ver, ContainerTag(ver), bytes())
 
     logger.info("Background check finished.")
 
@@ -83,7 +85,7 @@ RustVersion = namedtuple("RustVersion", "ver hash date")
 
 async def get_rust_version(image: str, tag: str) -> RustVersion:
     cmd = "rustc --version"
-    out = await run_cmd(cmd, {}, {})
+    out = await run_cmd(image, cmd, {}, {})
     _, ver, git_hash, dstamp = out.split(" ")
     git_hash = git_hash.strip("()")
     dstamp = dstamp.strip("()")

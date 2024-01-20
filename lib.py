@@ -14,16 +14,12 @@ import docker
 import discord
 from discord.ext import commands
 
+from config import settings
 import constants
 from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
 from runner import run_cmd
 
 logger = logging.getLogger(__name__)
-
-
-def todo() -> NoReturn:
-    # TODO(ultrabear): remove this
-    raise NotImplementedError("we have TODO at home (not implemented yet)")
 
 
 async def benchmark(
@@ -38,9 +34,15 @@ async def benchmark(
 
     try:
         results = []
+
+        with Database() as db:
+            (version_id, container_tag) = db.newest_container_version(
+                constants.SUPPORTED_BENCH_FORMAT
+            )
+
         with tempfile.TemporaryDirectory(suffix=f"-ferris-elf-{op_id}") as tmpdir:
             populate_tmp_dir(tmpdir, code)
-            if not await build_code(op_name, op_id, tmpdir):
+            if not await build_code(container_tag, op_name, op_id, tmpdir):
                 # This reply is not good UX, but it's better than silence.
                 await ctx.reply("Build failed.")
                 return
@@ -51,15 +53,23 @@ async def benchmark(
                 for in_file, contents in db.get_inputs(year, day).items():
                     logger.info("Processing file: %s", in_file)
                     load_input(tmpdir, contents)
-                    result_lst = await run_code(op_name, op_id, tmpdir, in_file)
+                    result_lst = await run_code(container_tag, op_name, op_id, tmpdir, in_file)
                     result = process_run_result(in_file, answers_map, result_lst)
                     if result is not None:
                         results.append(result)
 
-                db.save_results(op_id, year, day, part, code, todo(), todo(), results)
+                db.save_results(
+                    op_id,
+                    year,
+                    day,
+                    part,
+                    code,
+                    version_id,
+                    constants.SUPPORTED_BENCH_FORMAT,
+                    results,
+                )
 
-        # TODO: remove the type ignore when we remove the todo() calls above
-        verified_results = [r for r in results if r.verified]  # type: ignore[unreachable]
+        verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
             median = stats.mean([r.median for r in verified_results])
             average = stats.mean([r.average for r in verified_results])
@@ -106,15 +116,21 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
     logger.debug("Contents of tmp dir: %s", os.listdir(tmp_dir))
 
 
-async def build_code(author_name: str, author_id: int, tmp_dir: str) -> bool:
+async def build_code(
+    container_version: str, author_name: str, author_id: int, tmp_dir: str
+) -> bool:
     """
     Designed to be used with a basic rust container. Run the container
     with `cargo build` to build the code. Code is mounted in as a volume,
     so that binaries are saved between build/run.
     """
     logger.info("Running container to build code for %s", author_id)
+    image = settings.docker.container_ref
+    if ":" not in image:
+        image = image + ":" + container_version
     try:
         out = await run_cmd(
+            image,
             "timeout --kill-after=5s 90s cargo build --release",
             {},
             vols={
@@ -157,7 +173,7 @@ def load_input(tmp_dir: str, input_data: AocInput) -> None:
 
 
 async def run_code(
-    author_name: str, author_id: int, tmp_dir: str, in_file: SessionLabel, /
+    container_version: str, author_name: str, author_id: int, tmp_dir: str, in_file: SessionLabel, /
 ) -> Optional[list[dict[str, Any]]]:
     """
     Designed to be used with a basic rust container. Given the code already
@@ -165,8 +181,12 @@ async def run_code(
     """
     in_file_name = os.path.join("/app", "inputs", in_file)
     logger.info("Running container to run code for %s", author_id)
+    image = settings.docker.container_ref
+    if ":" not in image:
+        image = image + ":" + container_version
     try:
         out = await run_cmd(
+            image,
             "timeout --kill-after=15s 120s cargo criterion --message-format=json",
             env={
                 "FERRIS_ELF_INPUT_FILE_NAME": in_file_name,

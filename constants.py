@@ -2,6 +2,8 @@ from typing import Literal
 import discord
 from config import settings
 
+SUPPORTED_BENCH_FORMAT: int = 1
+
 HELP_REPLY = discord.Embed(
     title="Ferris Elf help page",
     color=0xE84611,
