@@ -13,6 +13,7 @@ import lib
 from config import settings
 from database import AdventDay, AdventPart, Database, Year
 from error_handler import ErrorHandlerCog
+from runner import bg_update
 
 logger = logging.getLogger(__name__)
 
@@ -148,16 +149,11 @@ async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
     ]
 
 
-async def periodic_check() -> None:
-    # TODO: insert docker container version checking
-    pass
-
-
 async def periodic_check_caller() -> None:
     while True:
         try:
             logger.info("calling periodic check function")
-            await periodic_check()
+            await bg_update()
         except Exception:
             logger.exception("Unknown issue in periodic checking function.")
 
