@@ -1,8 +1,7 @@
 import asyncio
-from collections import namedtuple
 import logging
 import functools
-from typing import Any, Optional
+from typing import Any, Optional, TypeAlias, NamedTuple
 import urllib.parse
 
 import docker
@@ -15,10 +14,11 @@ doc = docker.from_env()
 
 logger = logging.getLogger(__name__)
 
+VolumeDetails: TypeAlias = dict[str, str]
+VolumesInfo: TypeAlias = dict[str, VolumeDetails]
 
-async def run_cmd(
-    image: str, cmd: str, env: dict[str, str], vols: dict[str, dict[str, str]]
-) -> str:
+
+async def run_cmd(image: str, cmd: str, env: dict[str, str], vols: VolumesInfo) -> str:
     """
     Thin wrapper to simplify the Docker interface & provide secure defaults.
     """
@@ -80,7 +80,11 @@ async def bg_update() -> None:
 
 # --- Utils ---
 
-RustVersion = namedtuple("RustVersion", "ver hash date")
+
+class RustVersion(NamedTuple):
+    ver: str
+    hash: str
+    date: str
 
 
 async def get_rust_version(image: str, tag: str) -> RustVersion:
