@@ -50,7 +50,7 @@ async def bg_update() -> None:
 
     async with ah.ClientSession() as session:
         # TODO: get_remote_tags is supposed to be paginated...
-        tags = await get_remote_tags(session, image)
+        tags = set(await get_remote_tags(session, image))
         new_versions: set[str] = set()
         with Database() as db:
             new_versions = db.pick_new_container_versions(tags)

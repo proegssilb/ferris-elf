@@ -561,17 +561,16 @@ class Database:
 
             self.refresh_user_best_runs(year, day, part, user)
 
-    def pick_new_container_versions(self, versions: list[str]) -> set[str]:
+    def pick_new_container_versions(self, versions: set[str]) -> set[str]:
         """
         Given a list of container versions, return those not in the DB already.
         """
         query = "SELECT container_version FROM container_versions"
-        given_versions = set(versions)
         res = self._cursor.execute(query).fetchall()
         if res is None or len(res) == 0:
             return set(versions)
         present_versions = set(map(lambda x: x[0], res))
-        return given_versions.difference(present_versions)
+        return versions.difference(present_versions)
 
     def insert_container_version(
         self, rustc_ver: str, container_version: str, bench_format: int, bench_dir: bytes, /
