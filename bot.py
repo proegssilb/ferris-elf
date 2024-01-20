@@ -1,8 +1,8 @@
 import asyncio
+from io import StringIO
 import logging
 import sys
-import typing
-from typing import Annotated, Optional, Literal
+from typing import Annotated, Any, Optional, Literal
 
 import discord
 from discord.ext import commands
@@ -11,8 +11,9 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import Database
+from database import AdventDay, AdventPart, Database, Year
 from error_handler import ErrorHandlerCog
+from runner import bg_update
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +21,18 @@ logger = logging.getLogger(__name__)
 class MyBot(commands.Bot):
     __slots__ = ("queue", "db")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.queue = asyncio.Queue()
+        self.queue = asyncio.Queue[
+            tuple[commands.Context[Any], Year, AdventDay, AdventPart, bytes]
+        ]()
         # this is unusued ??
         self.db = Database()
 
-    async def setup_hook(self):
+    async def setup_hook(self) -> None:
         await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
         logger.info("Logged in as %s", self.user)
         while True:
             try:
@@ -45,40 +48,41 @@ class MyBot(commands.Bot):
 class Commands(commands.Cog):
     __slots__ = ("bot",)
 
-    def __init__(self, sbot: MyBot):
+    def __init__(self, sbot: MyBot) -> None:
         self.bot = sbot
 
     @commands.command()
     @commands.is_owner()
-    async def sync(self, ctx: commands.Context):
+    async def sync(self, ctx: commands.Context[Any]) -> None:
         # sync slash commands
         # this is a separate command because rate limits
         await self.bot.tree.sync()
         await ctx.reply("synced!")
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
-    @commands.hybrid_command(aliases=["aoc", "lb"])
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command(aliases=["aoc", "lb"])  # type: ignore[arg-type]
     async def best(
         self,
-        ctx: commands.Context,
-        day: Annotated[Optional[int], commands.Range[int, 1, 25]] = None,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
-    ):
+    ) -> None:
         if day is None:
             day = lib.today()
         else:
             if day > lib.today():
                 raise commands.BadArgument(f"Day {day} is in the future!")
 
-        async def format_times(times):
-            formatted = ""
+        async def format_times(times: list[tuple[int, str]]) -> str:
+            formatted = StringIO()
             for user_id, time in times:
                 user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
                 if user:
-                    formatted += f"\t{user.name}:  **{time}**\n"
-            return formatted
+                    formatted.write(f"\t{user.name}:  **{time}**\n")
+            return formatted.getvalue()
 
-        (times1, times2) = lib.get_best_times(day)
+        (times1, times2) = lib.get_best_times(lib.year(), day)
         times1_str = await format_times(times1)
         times2_str = await format_times(times2)
         embed = discord.Embed(title=f"Top 10 fastest toboggans for day {day}", color=0xE84611)
@@ -90,14 +94,15 @@ class Commands(commands.Cog):
         await ctx.reply(embed=embed)
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
-    @commands.hybrid_command()
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
     async def submit(
         self,
-        ctx: commands.Context,
-        day: commands.Range[int, 1, 25],
+        ctx: commands.Context[Any],
+        day: Annotated[AdventDay, commands.Range[int, 1, 25]],
         part: Literal[1, 2],
         code: discord.Attachment,
-    ):
+    ) -> None:
         if day > lib.today():
             raise commands.BadArgument(f"Day {day} is in the future!")
         await ctx.reply("Submitting...")
@@ -107,23 +112,32 @@ class Commands(commands.Cog):
             ctx.args,
             self.bot.queue.qsize(),
         )
-        # using a tuple is probably the most readable but shut
-        self.bot.queue.put_nowait((ctx, day, part, await code.read()))
-        await ctx.interaction.edit_original_response(
-            content=f"Your submission for day {day} part {part} has been queued. "
-            + f"There are {self.bot.queue.qsize()} submissions in the queue."
-        )
 
-    @commands.hybrid_command()
-    async def help(self, ctx: commands.Context):
+        # using a tuple is probably the most readable but shut
+        self.bot.queue.put_nowait((ctx, lib.year(), day, part, await code.read()))
+
+        if ctx.interaction is not None:
+            await ctx.interaction.edit_original_response(
+                content=f"Your submission for day {day} part {part} has been queued. "
+                + f"There are {self.bot.queue.qsize()} submissions in the queue."
+            )
+
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def help(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.HELP_REPLY)
 
-    @commands.hybrid_command()
-    async def info(self, ctx: commands.Context):
+    # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def info(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.INFO_REPLY)
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
+    # TODO(ultrabear): Bot.user is a Nullable field,
+    # we should properly fix this sometime
+    assert dbot.user is not None
+
     # TODO: guild-specific prefixes
     return [
         "aoc ",
@@ -133,6 +147,18 @@ async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
         f"<@!{dbot.user.id}>",
         f"<@{dbot.user.id}>",
     ]
+
+
+async def periodic_check_caller() -> None:
+    while True:
+        try:
+            logger.info("calling periodic check function")
+            await bg_update()
+        except Exception:
+            logger.exception("Unknown issue in periodic checking function.")
+
+        # call every 30 minutes
+        await asyncio.sleep(60 * 30)
 
 
 if __name__ == "__main__":
@@ -151,11 +177,12 @@ if __name__ == "__main__":
 
     try:
         settings.validators.validate()
-    except ValidationError as ve:
+    except ValidationError:
         logger.exception(
             "Invalid config. Did you forget to add the bot token to the `.secrets.toml` file? See the README for more info."
         )
         sys.exit(1)
+
     bot = MyBot(
         intents=intents,
         command_prefix=prefix,
@@ -169,4 +196,14 @@ if __name__ == "__main__":
             everyone=False, users=True, roles=False, replied_user=True
         ),
     )
-    bot.run(settings.discord.bot_token, log_handler=None)
+
+    async def init(bot: discord.Client, token: str) -> None:
+        asyncio.create_task(periodic_check_caller())
+
+        async with bot:
+            await bot.start(token)
+
+    try:
+        asyncio.run(init(bot, settings.discord.bot_token))
+    except KeyboardInterrupt:
+        pass
