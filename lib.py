@@ -7,7 +7,7 @@ import statistics as stats
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, NoReturn, Optional, cast, Self
+from typing import Any, Optional, cast, Self
 from zoneinfo import ZoneInfo
 
 import docker
