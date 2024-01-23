@@ -51,8 +51,9 @@ class Commands(commands.Cog):
     def __init__(self, sbot: MyBot) -> None:
         self.bot = sbot
 
-    @commands.command()
     @commands.is_owner()
+    @commands.dm_only()
+    @commands.hybrid_command()
     async def sync(self, ctx: commands.Context[Any]) -> None:
         # sync slash commands
         # this is a separate command because rate limits
@@ -61,8 +62,8 @@ class Commands(commands.Cog):
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
-    @commands.hybrid_command(aliases=["aoc", "lb"])  # type: ignore[arg-type]
-    async def best(
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def leaderboard(
         self,
         ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
@@ -93,8 +94,37 @@ class Commands(commands.Cog):
         embed.set_footer(text=constants.LEADERBOARD_FOOTER)
         await ctx.reply(embed=embed)
 
+    # `aliases` argument doesn't work for the slash-cmd part, so do it manually.
+    @commands.hybrid_command()
+    async def lb(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.best(ctx, day, part)
+    
+    @commands.hybrid_command()
+    async def best(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.best(ctx, day, part)
+
+    @commands.hybrid_command()
+    async def aoc(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.best(ctx, day, part)
+
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
+    @commands.dm_only()
     @commands.hybrid_command()  # type: ignore[arg-type]
     async def submit(
         self,
