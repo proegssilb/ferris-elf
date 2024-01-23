@@ -51,7 +51,7 @@ class Commands(commands.Cog):
 
     @commands.is_owner()
     @commands.dm_only()
-    @commands.hybrid_command()
+    @commands.command()
     async def sync(self, ctx: commands.Context[Any]) -> None:
         # sync slash commands
         # this is a separate command because rate limits
