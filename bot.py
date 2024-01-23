@@ -19,15 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class MyBot(commands.Bot):
-    __slots__ = ("queue", "db")
+    __slots__ = ("queue")
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue[
             tuple[commands.Context[Any], Year, AdventDay, AdventPart, bytes]
         ]()
-        # this is unusued ??
-        self.db = Database()
 
     async def setup_hook(self) -> None:
         await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
