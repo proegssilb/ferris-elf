@@ -1,4 +1,6 @@
 import datetime
+import logging
+import os.path
 import sqlite3
 from typing import (
     TYPE_CHECKING,
@@ -19,6 +21,7 @@ import config
 if TYPE_CHECKING:
     from lib import RunResult
 
+logger = logging.getLogger(__name__)
 
 AdventDay: TypeAlias = Literal[
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
@@ -230,7 +233,9 @@ class Database:
     def __init__(self, *, auto_commit: bool = True) -> None:
         if Database.connection is None:
             # assigns both to same object
-            con = Database.connection = sqlite3.connect(config.settings.db.filename)
+            db_file = config.settings.db.filename
+            logger.info("Opening DB file: %s", os.path.abspath(db_file))
+            con = Database.connection = sqlite3.connect(db_file)
             cur = con.cursor()
             _load_initial_schema(cur)
             con.commit()
@@ -485,6 +490,15 @@ class Database:
     ) -> list[Submission]:
         out = []
 
+        # The second query in the nested loop causes the cursor to change state, losing our prior result.
+        # So fetch the entire result set up-front before entering the loops.
+        submissions = list(
+            self._cursor.execute(
+                "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version, benchmark_format FROM submissions WHERE (year = ? AND day_part = ? AND user = ?) ORDER BY submission_id",
+                (year, pack_day_part(day, part), str(user_id)),
+            )
+        )
+
         for (
             id,
             avg_time,
@@ -493,10 +507,7 @@ class Database:
             submitted_at,
             bencher_version,
             benchmark_format,
-        ) in self._cursor.execute(
-            "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version, benchmark_format FROM submissions WHERE (year = ? AND day_part = ? AND user = ?)",
-            (year, pack_day_part(day, part), str(user_id)),
-        ):
+        ) in submissions:
             benches = list[BenchmarkRun](
                 BenchmarkRun(
                     id, Picoseconds(average_time), label, answer, dt_from_unix(completed_at)

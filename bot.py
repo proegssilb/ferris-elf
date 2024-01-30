@@ -2,16 +2,17 @@ import asyncio
 from io import StringIO
 import logging
 import sys
-from typing import Annotated, Any, Optional, Literal
+from typing import Annotated, Any, Callable, Optional, Literal, ParamSpec, TypeVar
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 from dynaconf import ValidationError
 
 import constants
 import lib
 from config import settings
-from database import AdventDay, AdventPart, Database, Year
+from database import AdventDay, AdventPart, Database, Picoseconds, Year
 from error_handler import ErrorHandlerCog
 from runner import bg_update
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class MyBot(commands.Bot):
-    __slots__ = ("queue")
+    __slots__ = "queue"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -28,7 +29,11 @@ class MyBot(commands.Bot):
         ]()
 
     async def setup_hook(self) -> None:
-        await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
+        await asyncio.gather(
+            bot.add_cog(Commands(bot)),
+            bot.add_cog(ErrorHandlerCog(bot)),
+            bot.add_cog(ModCommands(bot)),
+        )
 
     async def on_ready(self) -> None:
         logger.info("Logged in as %s", self.user)
@@ -93,37 +98,37 @@ class Commands(commands.Cog):
         await ctx.reply(embed=embed)
 
     # `aliases` argument doesn't work for the slash-cmd part, so do it manually.
-    @commands.hybrid_command()
+    @commands.hybrid_command()  # type: ignore[arg-type]
     async def lb(
         self,
         ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)
-    
-    @commands.hybrid_command()
+        await self.best(ctx, day, part)  # type: ignore[arg-type]
+
+    @commands.hybrid_command()  # type: ignore[arg-type]
     async def best(
         self,
         ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)
+        await self.best(ctx, day, part)  # type: ignore[arg-type]
 
-    @commands.hybrid_command()
+    @commands.hybrid_command()  # type: ignore[arg-type]
     async def aoc(
         self,
         ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)
+        await self.best(ctx, day, part)  # type: ignore[arg-type]
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
-    @commands.dm_only()
     @commands.hybrid_command()  # type: ignore[arg-type]
+    @commands.dm_only()
     async def submit(
         self,
         ctx: commands.Context[Any],
@@ -159,6 +164,81 @@ class Commands(commands.Cog):
     @commands.hybrid_command()  # type: ignore[arg-type]
     async def info(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.INFO_REPLY)
+
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def only_from_guilds(*servers: list[int]) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Add a check to make sure the command can only be run from one of a list of servers."""
+
+    # The lazy return type is due to discord.py not being more specific in their return type.
+    # `discord.Interaction` is currently a generic type, but is not documented that way.
+
+    def check_guild(itr: discord.Interaction) -> bool:  # type: ignore[type-arg]
+        return itr.guild_id in (servers or [])
+
+    return app_commands.check(check_guild)
+
+
+class ModCommands(commands.Cog):
+    __slots__ = ("bot",)
+
+    def __init__(self, sbot: MyBot) -> None:
+        self.bot = sbot
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def user_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        user: discord.User,
+        day: Annotated[AdventDay, app_commands.Range[int, 1, 25]],
+        part: Annotated[AdventPart, Literal[1, 2]],
+    ) -> None:
+        await interaction.response.send_message(content="Loading...")
+
+        with Database() as db:
+            results = db.get_user_submissions(lib.year(), day, part, user.id)
+
+        results.sort(key=(lambda r: r.average_time or Picoseconds(5e12)))
+        results = results[:10]
+        results.sort(key=(lambda r: r.id))
+
+        attachments = []
+        for res in results:
+            name = f"Submission_{res.id}.rs"
+            desc = f"Submission {res.id} from user {user}"
+            file_handle = StringIO(res.code)
+
+            # Not sure whether the type is specified incorrectly or this is an ugly hack.
+            # Either way, this is what works to get Discord to not open a file.
+            f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
+            attachments.append(f)
+
+        await interaction.edit_original_response(
+            content=f"Ten fastest submissions for user {user} on day {day}, part {part}:",
+            attachments=attachments,
+        )
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def leaderboard_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        day: Annotated[AdventDay, app_commands.Range[int, 1, 25]],
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+        place: Optional[app_commands.Range[int, 1, 10]] = None,
+    ) -> None:
+        if part is None and place is None:
+            await interaction.response.send_message(
+                content="You must specify at least part or place."
+            )
+            return
+        await interaction.response.send_message(content="Not implemented yet.")
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
