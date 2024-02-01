@@ -407,7 +407,11 @@ class Database:
         Flushes the best_runs table for a given user and year-day-part, used when inserting new entries or when marking submissions invalid
         """
         self._cursor.execute(
-            "REPLACE INTO best_runs "
+            "DELETE FROM best_runs WHERE (year = ? AND day_part = ? AND user = ?)",
+            (year, pack_day_part(day, part), user_id),
+        )
+        self._cursor.execute(
+            "INSERT INTO best_runs "
             + "SELECT user, year, day_part, MIN(average_time) AS best_time, submission_id AS run_id FROM submissions "
             + "WHERE (year = ? AND day_part = ? AND valid = 1 AND user = ?)",
             (year, pack_day_part(day, part), user_id),

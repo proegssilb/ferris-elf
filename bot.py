@@ -12,7 +12,7 @@ from dynaconf import ValidationError
 import constants
 import lib
 from config import settings
-from database import AdventDay, AdventPart, Database, Picoseconds, Year
+from database import AdventDay, AdventPart, Database, Picoseconds, SubmissionId, Year
 from error_handler import ErrorHandlerCog
 from runner import bg_update
 
@@ -257,6 +257,24 @@ class ModCommands(commands.Cog):
             content=f"Leaderboard submissions on day {day}, part {part}:",
             attachments=attachments,
         )
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def invalidate_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        submission_id: Annotated[SubmissionId, int],
+    ) -> None:
+        submission = lib.invalidate_submission(submission_id)
+
+        user = self.bot.get_user(submission.user_id) or await self.bot.fetch_user(
+            submission.user_id
+        )
+
+        msg = f"Submission {submission_id} by {user} invalidated."
+
+        await interaction.response.send_message(content=msg)
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:
