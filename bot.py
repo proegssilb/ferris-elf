@@ -230,15 +230,33 @@ class ModCommands(commands.Cog):
         self,
         interaction: discord.Interaction,  # type: ignore[type-arg]
         day: Annotated[AdventDay, app_commands.Range[int, 1, 25]],
-        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+        part: Annotated[AdventPart, Literal[1, 2]],
         place: Optional[app_commands.Range[int, 1, 10]] = None,
     ) -> None:
-        if part is None and place is None:
-            await interaction.response.send_message(
-                content="You must specify at least part or place."
-            )
-            return
-        await interaction.response.send_message(content="Not implemented yet.")
+        await interaction.response.send_message(content="Loading...")
+        
+        with Database() as db:
+            submisssions = db.get_lb_submissions(lib.year(), day, part)
+
+        if place is not None:
+            submisssions = [submisssions[place - 1]]
+        
+        attachments = []
+        for res in submisssions:
+            user = self.bot.get_user(res.user_id) or await self.bot.fetch_user(res.user_id)
+            name = f"Submission_{user}_{res.id}.rs"
+            desc = f"Submission {res.id} from user {user}"
+            file_handle = StringIO(res.code)
+
+            # Not sure whether the type is specified incorrectly or this is an ugly hack.
+            # Either way, this is what works to get Discord to not open a file.
+            f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
+            attachments.append(f)
+        
+        await interaction.edit_original_response(
+            content=f"Leaderboard submissions on day {day}, part {part}:",
+            attachments=attachments,
+        )
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:

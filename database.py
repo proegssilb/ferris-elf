@@ -454,6 +454,14 @@ class Database:
             (int(user), Picoseconds(time))
             for user, time in self._cursor.execute(query, (year, pack_day_part(day, part)))
         )
+    
+    def get_lb_submissions(self, year: Year, day: AdventDay, part: AdventPart, /) -> list[Submission]:
+        """Gets the fully-hydrated Submissions on the leaderboard for a given day/part."""
+        query = "SELECT run_id FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time LIMIT 10"
+
+        submission_rows = list(self._cursor.execute(query, (year, pack_day_part(day, part))))
+
+        return self.get_submissions_by_ids(tuple(id for (id,) in submission_rows))
 
     def insert_input(
         self, session_label: SessionLabel, year: Year, day: AdventDay, input_data: str
@@ -584,6 +592,69 @@ class Database:
             )
 
         return None
+    
+    def get_submissions_by_ids(self, ids: tuple[SubmissionId, ...], /) -> list[Submission]:
+        """Retrieve fully-hydrated Submission objects for the specified Submission IDs"""
+        if len(ids) == 0:
+            return []
+        if len(ids) == 1:
+            res = self.get_submission_by_id(ids[0])
+            if res is None:
+                return []
+            return [res]
+        
+        query = """
+            SELECT submission_id, year, day_part, user, average_time, code, valid, submitted_at, bencher_version, benchmark_format 
+            FROM submissions 
+            WHERE submission_id in ?
+            """
+        
+        results = list(self._cursor.execute( query, (ids,) ))
+
+        out = []
+
+        for (
+            subm_id,
+            year,
+            day_part,
+            user_id,
+            avg_time,
+            code,
+            valid,
+            submitted_at,
+            bencher_version,
+            benchmark_format,
+        ) in results:
+            (day, part) = unpack_day_part(day_part)
+
+            benches = list[BenchmarkRun](
+                BenchmarkRun(
+                    subm_id, Picoseconds(average_time), label, answer, dt_from_unix(completed_at)
+                )
+                for label, average_time, answer, completed_at in self._cursor.execute(
+                    "SELECT session_label, average_time, answer, completed_at FROM benchmark_runs WHERE (submission = ?)",
+                    (subm_id,),
+                )
+            )
+
+            out.append(
+                Submission(
+                    subm_id,
+                    user_id,
+                    year,
+                    day,
+                    part,
+                    Picoseconds(avg_time) if avg_time is not None else None,
+                    gzip.decompress(code).decode("utf8"),
+                    valid,
+                    dt_from_unix(submitted_at),
+                    ContainerVersionId(bencher_version),
+                    int(benchmark_format),
+                    benches,
+                )
+            )
+
+        return out
 
     def mark_submission_invalid(self, submission_id: SubmissionId, /) -> None:
         """
