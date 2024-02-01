@@ -200,6 +200,14 @@ class ModCommands(commands.Cog):
     ) -> None:
         await interaction.response.send_message(content="Loading...")
 
+        logger.info(
+            "User %s requested submissions for user %s, day %s, part %s",
+            interaction.user,
+            user,
+            day,
+            part,
+        )
+
         with Database() as db:
             results = db.get_user_submissions(lib.year(), day, part, user.id)
 
@@ -235,6 +243,14 @@ class ModCommands(commands.Cog):
     ) -> None:
         await interaction.response.send_message(content="Loading...")
 
+        logger.info(
+            "User %s requested code for leaderboard entry (day %s, part %s, place %s)",
+            interaction.user,
+            day,
+            part,
+            place,
+        )
+
         with Database() as db:
             submisssions = db.get_lb_submissions(lib.year(), day, part)
 
@@ -266,6 +282,10 @@ class ModCommands(commands.Cog):
         interaction: discord.Interaction,  # type: ignore[type-arg]
         submission_id: Annotated[SubmissionId, int],
     ) -> None:
+        logger.info(
+            "User %s requested invalidation of submission %s", interaction.user, submission_id
+        )
+
         submission = lib.invalidate_submission(submission_id)
 
         user = self.bot.get_user(submission.user_id) or await self.bot.fetch_user(
@@ -273,6 +293,13 @@ class ModCommands(commands.Cog):
         )
 
         msg = f"Submission {submission_id} by {user} invalidated."
+
+        logger.info(
+            "Submission %s by user %s invalidated, as per request from %s",
+            submission_id,
+            user,
+            interaction.user,
+        )
 
         await interaction.response.send_message(content=msg)
 

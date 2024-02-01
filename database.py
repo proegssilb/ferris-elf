@@ -503,7 +503,7 @@ class Database:
         self, year: Year, day: AdventDay, part: AdventPart, user_id: int, /
     ) -> list[Submission]:
         submissions = self._cursor.execute(
-            "SELECT submission_id FROM submissions WHERE (year = ? AND day_part = ? AND user = ?) ORDER BY submission_id",
+            "SELECT submission_id FROM submissions WHERE (year = ? AND day_part = ? AND user = ? AND valid = 1) ORDER BY submission_id",
             (year, pack_day_part(day, part), str(user_id)),
         )
 
