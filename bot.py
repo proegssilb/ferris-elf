@@ -234,13 +234,13 @@ class ModCommands(commands.Cog):
         place: Optional[app_commands.Range[int, 1, 10]] = None,
     ) -> None:
         await interaction.response.send_message(content="Loading...")
-        
+
         with Database() as db:
             submisssions = db.get_lb_submissions(lib.year(), day, part)
 
         if place is not None:
             submisssions = [submisssions[place - 1]]
-        
+
         attachments = []
         for res in submisssions:
             user = self.bot.get_user(res.user_id) or await self.bot.fetch_user(res.user_id)
@@ -252,7 +252,7 @@ class ModCommands(commands.Cog):
             # Either way, this is what works to get Discord to not open a file.
             f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
             attachments.append(f)
-        
+
         await interaction.edit_original_response(
             content=f"Leaderboard submissions on day {day}, part {part}:",
             attachments=attachments,

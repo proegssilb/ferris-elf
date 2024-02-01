@@ -454,8 +454,10 @@ class Database:
             (int(user), Picoseconds(time))
             for user, time in self._cursor.execute(query, (year, pack_day_part(day, part)))
         )
-    
-    def get_lb_submissions(self, year: Year, day: AdventDay, part: AdventPart, /) -> list[Submission]:
+
+    def get_lb_submissions(
+        self, year: Year, day: AdventDay, part: AdventPart, /
+    ) -> list[Submission]:
         """Gets the fully-hydrated Submissions on the leaderboard for a given day/part."""
         query = "SELECT run_id FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time LIMIT 10"
 
@@ -496,54 +498,12 @@ class Database:
     def get_user_submissions(
         self, year: Year, day: AdventDay, part: AdventPart, user_id: int, /
     ) -> list[Submission]:
-        out = []
-
-        # The second query in the nested loop causes the cursor to change state, losing our prior result.
-        # So fetch the entire result set up-front before entering the loops.
-        submissions = list(
-            self._cursor.execute(
-                "SELECT submission_id, average_time, code, valid, submitted_at, bencher_version, benchmark_format FROM submissions WHERE (year = ? AND day_part = ? AND user = ?) ORDER BY submission_id",
-                (year, pack_day_part(day, part), str(user_id)),
-            )
+        submissions = self._cursor.execute(
+            "SELECT submission_id FROM submissions WHERE (year = ? AND day_part = ? AND user = ?) ORDER BY submission_id",
+            (year, pack_day_part(day, part), str(user_id)),
         )
 
-        for (
-            id,
-            avg_time,
-            code,
-            valid,
-            submitted_at,
-            bencher_version,
-            benchmark_format,
-        ) in submissions:
-            benches = list[BenchmarkRun](
-                BenchmarkRun(
-                    id, Picoseconds(average_time), label, answer, dt_from_unix(completed_at)
-                )
-                for label, average_time, answer, completed_at in self._cursor.execute(
-                    "SELECT session_label, average_time, answer, completed_at FROM benchmark_runs WHERE (submission = ?)",
-                    (id,),
-                )
-            )
-
-            out.append(
-                Submission(
-                    id,
-                    user_id,
-                    year,
-                    day,
-                    part,
-                    Picoseconds(avg_time) if avg_time is not None else None,
-                    gzip.decompress(code).decode("utf8"),
-                    valid,
-                    dt_from_unix(submitted_at),
-                    ContainerVersionId(bencher_version),
-                    int(benchmark_format),
-                    benches,
-                )
-            )
-
-        return out
+        return self.get_submissions_by_ids(tuple(subm_id for (subm_id,) in submissions))
 
     def get_submission_by_id(self, id: SubmissionId, /) -> Optional[Submission]:
         if (
@@ -592,7 +552,7 @@ class Database:
             )
 
         return None
-    
+
     def get_submissions_by_ids(self, ids: tuple[SubmissionId, ...], /) -> list[Submission]:
         """Retrieve fully-hydrated Submission objects for the specified Submission IDs"""
         if len(ids) == 0:
@@ -602,14 +562,18 @@ class Database:
             if res is None:
                 return []
             return [res]
-        
+
+        # sqlite doesn't let us pass a list of IDs directly. Other DBs do, not sqlite.
+        # TODO: Paginate if hundreds of IDs. For sizes we care about, this is fine.
         query = """
             SELECT submission_id, year, day_part, user, average_time, code, valid, submitted_at, bencher_version, benchmark_format 
             FROM submissions 
-            WHERE submission_id in ?
+            WHERE submission_id in ({})
             """
-        
-        results = list(self._cursor.execute( query, (ids,) ))
+
+        query = query.format(", ".join(["?"] * len(ids)))
+
+        results = list(self._cursor.execute(query, ids))
 
         out = []
 
