@@ -1,5 +1,5 @@
 import asyncio
-from io import StringIO
+from io import BytesIO, StringIO
 import logging
 import sys
 from typing import Annotated, Any, Callable, Optional, Literal, ParamSpec, TypeVar
@@ -211,7 +211,9 @@ class ModCommands(commands.Cog):
         with Database() as db:
             results = db.get_user_submissions(lib.year(), day, part, user.id)
 
-        results.sort(key=(lambda r: r.average_time or Picoseconds(5e12)))  # 5s
+        results.sort(
+            key=(lambda r: r.average_time or Picoseconds(5e12))
+        )  # Default to 5s while sorting
         results = results[:10]
         results.sort(key=(lambda r: r.id))
 
@@ -219,11 +221,9 @@ class ModCommands(commands.Cog):
         for res in results:
             name = f"Submission_{res.id}.rs"
             desc = f"Submission {res.id} from user {user}"
-            file_handle = StringIO(res.code)
+            file_handle = BytesIO(res.code.encode("utf8"))
 
-            # Not sure whether the type on file_handle is specified incorrectly or this is an ugly hack.
-            # Either way, this is what works to get Discord to not open a file.
-            f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
+            f = discord.File(file_handle, filename=name, description=desc)
             attachments.append(f)
 
         await interaction.edit_original_response(
