@@ -105,7 +105,7 @@ class Commands(commands.Cog):
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)  # type: ignore[arg-type]
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
 
     @commands.hybrid_command()  # type: ignore[arg-type]
     async def best(
@@ -114,7 +114,7 @@ class Commands(commands.Cog):
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)  # type: ignore[arg-type]
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
 
     @commands.hybrid_command()  # type: ignore[arg-type]
     async def aoc(
@@ -123,7 +123,7 @@ class Commands(commands.Cog):
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
         part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
     ) -> None:
-        await self.best(ctx, day, part)  # type: ignore[arg-type]
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
 
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
@@ -211,7 +211,7 @@ class ModCommands(commands.Cog):
         with Database() as db:
             results = db.get_user_submissions(lib.year(), day, part, user.id)
 
-        results.sort(key=(lambda r: r.average_time or Picoseconds(5e12)))
+        results.sort(key=(lambda r: r.average_time or Picoseconds(5e12)))  # 5s
         results = results[:10]
         results.sort(key=(lambda r: r.id))
 
@@ -221,7 +221,7 @@ class ModCommands(commands.Cog):
             desc = f"Submission {res.id} from user {user}"
             file_handle = StringIO(res.code)
 
-            # Not sure whether the type is specified incorrectly or this is an ugly hack.
+            # Not sure whether the type on file_handle is specified incorrectly or this is an ugly hack.
             # Either way, this is what works to get Discord to not open a file.
             f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
             attachments.append(f)

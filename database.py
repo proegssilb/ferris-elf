@@ -232,9 +232,9 @@ class Database:
 
     def __init__(self, *, auto_commit: bool = True) -> None:
         if Database.connection is None:
-            # assigns both to same object
             db_file = config.settings.db.filename
             logger.info("Opening DB file: %s", os.path.abspath(db_file))
+            # assigns both to same object
             con = Database.connection = sqlite3.connect(db_file)
             cur = con.cursor()
             _load_initial_schema(cur)
@@ -465,7 +465,7 @@ class Database:
         """Gets the fully-hydrated Submissions on the leaderboard for a given day/part."""
         query = "SELECT run_id FROM best_runs WHERE (year = ? AND day_part = ?) ORDER BY best_time LIMIT 10"
 
-        submission_rows = list(self._cursor.execute(query, (year, pack_day_part(day, part))))
+        submission_rows = self._cursor.execute(query, (year, pack_day_part(day, part)))
 
         return self.get_submissions_by_ids(tuple(id for (id,) in submission_rows))
 
@@ -569,13 +569,11 @@ class Database:
 
         # sqlite doesn't let us pass a list of IDs directly. Other DBs do, not sqlite.
         # TODO: Paginate if hundreds of IDs. For sizes we care about, this is fine.
-        query = """
+        query = f"""
             SELECT submission_id, year, day_part, user, average_time, code, valid, submitted_at, bencher_version, benchmark_format 
             FROM submissions 
-            WHERE submission_id in ({})
+            WHERE submission_id in ({", ".join(["?"] * len(ids))})
             """
-
-        query = query.format(", ".join(["?"] * len(ids)))
 
         results = list(self._cursor.execute(query, ids))
 
