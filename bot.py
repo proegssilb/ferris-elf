@@ -1,17 +1,18 @@
 import asyncio
-from io import StringIO
+from io import BytesIO, StringIO
 import logging
 import sys
-from typing import Annotated, Any, Optional, Literal
+from typing import Annotated, Any, Callable, Optional, Literal, ParamSpec, TypeVar
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 from dynaconf import ValidationError
 
 import constants
 import lib
 from config import settings
-from database import AdventDay, AdventPart, Database, Year
+from database import AdventDay, AdventPart, Database, Picoseconds, SubmissionId, Year
 from error_handler import ErrorHandlerCog
 from runner import bg_update
 
@@ -19,18 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 class MyBot(commands.Bot):
-    __slots__ = ("queue", "db")
+    __slots__ = "queue"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.queue = asyncio.Queue[
             tuple[commands.Context[Any], Year, AdventDay, AdventPart, bytes]
         ]()
-        # this is unusued ??
-        self.db = Database()
 
     async def setup_hook(self) -> None:
-        await asyncio.gather(bot.add_cog(Commands(bot)), bot.add_cog(ErrorHandlerCog(bot)))
+        await asyncio.gather(
+            bot.add_cog(Commands(bot)),
+            bot.add_cog(ErrorHandlerCog(bot)),
+            bot.add_cog(ModCommands(bot)),
+        )
 
     async def on_ready(self) -> None:
         logger.info("Logged in as %s", self.user)
@@ -51,8 +54,9 @@ class Commands(commands.Cog):
     def __init__(self, sbot: MyBot) -> None:
         self.bot = sbot
 
-    @commands.command()
     @commands.is_owner()
+    @commands.dm_only()
+    @commands.command()
     async def sync(self, ctx: commands.Context[Any]) -> None:
         # sync slash commands
         # this is a separate command because rate limits
@@ -61,8 +65,8 @@ class Commands(commands.Cog):
 
     # intentionally did not use typing.Optional because dpy treats it differently and i dont want that behavior
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
-    @commands.hybrid_command(aliases=["aoc", "lb"])  # type: ignore[arg-type]
-    async def best(
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def leaderboard(
         self,
         ctx: commands.Context[Any],
         day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
@@ -93,9 +97,38 @@ class Commands(commands.Cog):
         embed.set_footer(text=constants.LEADERBOARD_FOOTER)
         await ctx.reply(embed=embed)
 
+    # `aliases` argument doesn't work for the slash-cmd part, so do it manually.
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def lb(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
+
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def best(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
+
+    @commands.hybrid_command()  # type: ignore[arg-type]
+    async def aoc(
+        self,
+        ctx: commands.Context[Any],
+        day: Annotated[Optional[AdventDay], commands.Range[int, 1, 25]] = None,
+        part: Annotated[Optional[Literal[1, 2]], Literal[1, 2]] = None,
+    ) -> None:
+        await self.leaderboard(ctx, day, part)  # type: ignore[arg-type]
+
     # i intentionally did not have the default behavior of automatically choosing part 1 because that's confusing
     # type-ignore for mypy not understanding how to work with hybrid_command decorator
     @commands.hybrid_command()  # type: ignore[arg-type]
+    @commands.dm_only()
     async def submit(
         self,
         ctx: commands.Context[Any],
@@ -131,6 +164,147 @@ class Commands(commands.Cog):
     @commands.hybrid_command()  # type: ignore[arg-type]
     async def info(self, ctx: commands.Context[Any]) -> None:
         await ctx.reply(embed=constants.INFO_REPLY)
+
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def only_from_guilds(*servers: int) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Add a check to make sure the command can only be run from one of a list of servers."""
+
+    # The lazy return type is due to discord.py not being more specific in their return type.
+    # `discord.Interaction` is currently a generic type, but is not documented that way.
+
+    # We shouldn't have to deal with `None` here, but you never know...
+    guild_set = frozenset(servers or [])
+
+    def check_guild(itr: discord.Interaction) -> bool:  # type: ignore[type-arg]
+        return itr.guild_id in guild_set
+
+    return app_commands.check(check_guild)
+
+
+class ModCommands(commands.Cog):
+    __slots__ = ("bot",)
+
+    def __init__(self, sbot: MyBot) -> None:
+        self.bot = sbot
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def user_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        user: discord.User,
+        day: Annotated[AdventDay, app_commands.Range[int, 1, 25]],
+        part: Annotated[AdventPart, Literal[1, 2]],
+    ) -> None:
+        await interaction.response.send_message(content="Loading...")
+
+        logger.info(
+            "User %s requested submissions for user %s, day %s, part %s",
+            interaction.user,
+            user,
+            day,
+            part,
+        )
+
+        with Database() as db:
+            results = db.get_user_submissions(lib.year(), day, part, user.id)
+
+        results.sort(
+            key=(lambda r: r.average_time or Picoseconds(5e12))
+        )  # Default to 5s while sorting
+        results = results[:10]
+        results.sort(key=(lambda r: r.id))
+
+        attachments = []
+        for res in results:
+            name = f"Submission_{res.id}.rs"
+            desc = f"Submission {res.id} from user {user}"
+            file_handle = BytesIO(res.code.encode("utf8"))
+
+            f = discord.File(file_handle, filename=name, description=desc)
+            attachments.append(f)
+
+        await interaction.edit_original_response(
+            content=f"Ten fastest submissions for user {user} on day {day}, part {part}:",
+            attachments=attachments,
+        )
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def leaderboard_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        day: Annotated[AdventDay, app_commands.Range[int, 1, 25]],
+        part: Annotated[AdventPart, Literal[1, 2]],
+        place: Optional[app_commands.Range[int, 1, 10]] = None,
+    ) -> None:
+        await interaction.response.send_message(content="Loading...")
+
+        logger.info(
+            "User %s requested code for leaderboard entry (day %s, part %s, place %s)",
+            interaction.user,
+            day,
+            part,
+            place,
+        )
+
+        with Database() as db:
+            submisssions = db.get_lb_submissions(lib.year(), day, part)
+
+        if place is not None:
+            submisssions = [submisssions[place - 1]]
+
+        attachments = []
+        for res in submisssions:
+            user = self.bot.get_user(res.user_id) or await self.bot.fetch_user(res.user_id)
+            name = f"Submission_{user}_{res.id}.rs"
+            desc = f"Submission {res.id} from user {user}"
+            file_handle = StringIO(res.code)
+
+            # Not sure whether the type is specified incorrectly or this is an ugly hack.
+            # Either way, this is what works to get Discord to not open a file.
+            f = discord.File(file_handle, filename=name, description=desc)  # type: ignore[arg-type]
+            attachments.append(f)
+
+        await interaction.edit_original_response(
+            content=f"Leaderboard submissions on day {day}, part {part}:",
+            attachments=attachments,
+        )
+
+    @app_commands.command()
+    @app_commands.default_permissions(manage_messages=True)
+    @only_from_guilds(*settings.discord.management_servers)
+    async def invalidate_code(
+        self,
+        interaction: discord.Interaction,  # type: ignore[type-arg]
+        submission_id: Annotated[SubmissionId, int],
+    ) -> None:
+        logger.info(
+            "User %s requested invalidation of submission %s", interaction.user, submission_id
+        )
+
+        submission = lib.invalidate_submission(submission_id)
+
+        user = self.bot.get_user(submission.user_id) or await self.bot.fetch_user(
+            submission.user_id
+        )
+
+        msg = f"Submission {submission_id} by {user} invalidated."
+
+        logger.info(
+            "Submission %s by user %s invalidated, as per request from %s",
+            submission_id,
+            user,
+            interaction.user,
+        )
+
+        await interaction.response.send_message(content=msg)
 
 
 async def prefix(dbot: commands.Bot, message: discord.Message) -> list[str]:

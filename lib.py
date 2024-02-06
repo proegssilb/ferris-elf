@@ -16,7 +16,17 @@ from discord.ext import commands
 
 from config import settings
 import constants
-from database import AdventDay, AdventPart, AocInput, Database, Picoseconds, SessionLabel, Year
+from database import (
+    AdventDay,
+    AdventPart,
+    AocInput,
+    Database,
+    Picoseconds,
+    SessionLabel,
+    Submission,
+    SubmissionId,
+    Year,
+)
 from runner import run_cmd
 
 logger = logging.getLogger(__name__)
@@ -320,6 +330,18 @@ def get_best_times(
         times2 = [(user, str(time)) for user, time in db.best_times(cur_year, day, 2)]
 
     return (times1, times2)
+
+
+def invalidate_submission(submission_id: SubmissionId) -> Submission:
+    """Mark a submission as invalid, and shouldn't be on the leaderboard."""
+    with Database() as db:
+        submission = db.get_submission_by_id(submission_id)
+        if submission is None:
+            logger.error("Asked to invalidate submission %s, but not found.", submission_id)
+            raise KeyError("Invalid submission.")
+        db.mark_submission_invalid(submission_id)
+
+    return submission
 
 
 def year() -> Year:

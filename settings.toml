@@ -4,6 +4,7 @@ dynaconf_merge = true
 filename = "database.db"
 
 [discord]
+management_servers = [273534239310479360, 1181719916559212545]
 support_info = "@format Ping <@{this.discord.owner_id}> for any support issues"
 rust_version_info = "latest stable for Docker containers"
 hw_info = "Benchmarks are run in a controlled sandbox with limited resources."
