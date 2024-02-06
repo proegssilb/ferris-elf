@@ -27,7 +27,7 @@ from database import (
     SubmissionId,
     Year,
 )
-from runner import run_cmd
+from ferris_elf.runner import run_cmd
 
 logger = logging.getLogger(__name__)
 

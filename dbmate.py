@@ -6,7 +6,7 @@ dbmate can be found at: https://github.com/amacneil/dbmate
 
 # NOTE: This script is run in ops/update.sh
 
-from config import settings
+from ferris_elf.config import settings
 
 import subprocess
 import sys

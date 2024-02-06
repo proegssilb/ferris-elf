@@ -5,6 +5,9 @@ description = "A bot to profile Rust code shared over Discord"
 authors = ["proegssilb <proegssilb@gmail.com>"]
 license = "Apache2"
 readme = "README.md"
+packages = [
+    { include = "ferris_elf" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"

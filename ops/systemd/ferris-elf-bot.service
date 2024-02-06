@@ -6,7 +6,7 @@ Requires=docker.service
 [Service]
 EnvironmentFile=/srv/ferris-elf/config/env_file
 WorkingDirectory=/srv/ferris-elf/ferris-elf/
-ExecStart=/srv/ferris-elf/.local/bin/poetry run python3 bot.py
+ExecStart=/srv/ferris-elf/.local/bin/poetry run python3 ferris_elf/bot.py
 Restart=always
 
 [Install]

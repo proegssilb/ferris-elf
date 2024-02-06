@@ -14,7 +14,7 @@ import lib
 from config import settings
 from database import AdventDay, AdventPart, Database, Picoseconds, SubmissionId, Year
 from error_handler import ErrorHandlerCog
-from runner import bg_update
+from ferris_elf.runner import bg_update
 
 logger = logging.getLogger(__name__)
 
