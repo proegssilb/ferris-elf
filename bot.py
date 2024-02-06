@@ -170,14 +170,17 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def only_from_guilds(*servers: list[int]) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def only_from_guilds(*servers: int) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Add a check to make sure the command can only be run from one of a list of servers."""
 
     # The lazy return type is due to discord.py not being more specific in their return type.
     # `discord.Interaction` is currently a generic type, but is not documented that way.
 
+    # We shouldn't have to deal with `None` here, but you never know...
+    guild_set = frozenset(servers or [])
+
     def check_guild(itr: discord.Interaction) -> bool:  # type: ignore[type-arg]
-        return itr.guild_id in (servers or [])
+        return itr.guild_id in guild_set
 
     return app_commands.check(check_guild)
 

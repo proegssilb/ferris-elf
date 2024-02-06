@@ -9,6 +9,7 @@ from typing import (
     NewType,
     Optional,
     Self,
+    Sequence,
     TypeAlias,
     TypeVar,
     cast,
@@ -557,8 +558,12 @@ class Database:
 
         return None
 
-    def get_submissions_by_ids(self, ids: tuple[SubmissionId, ...], /) -> list[Submission]:
+    def get_submissions_by_ids(self, ids: Sequence[SubmissionId], /) -> list[Submission]:
         """Retrieve fully-hydrated Submission objects for the specified Submission IDs"""
+
+        # People on Stack Overflow have had problems with fewer than two items with the
+        # IN clause. So deal with 0 and 1 seperately, and then sqlite's query parser can't
+        # cause problems.
         if len(ids) == 0:
             return []
         if len(ids) == 1:

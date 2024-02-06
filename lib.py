@@ -338,7 +338,7 @@ def invalidate_submission(submission_id: SubmissionId) -> Submission:
         submission = db.get_submission_by_id(submission_id)
         if submission is None:
             logger.error("Asked to invalidate submission %s, but not found.", submission_id)
-            raise ValueError("Invalid submission.")
+            raise KeyError("Invalid submission.")
         db.mark_submission_invalid(submission_id)
 
     return submission
