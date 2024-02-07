@@ -24,6 +24,8 @@ ruff = "^0.1.8"
 mypy = "^1.7.1"
 # these are type stubs for mypy to check fetch.py
 types-requests = "^2.31.0.10"
+hypothesis = "^6.98.2"
+pytest = "^8.0.0"
 
 [tool.ruff]
 line-length = 100
