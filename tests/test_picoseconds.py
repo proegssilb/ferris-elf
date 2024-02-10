@@ -1,10 +1,11 @@
 from functools import partialmethod
 import operator as op
+from warnings import warn
 
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule, precondition
 import hypothesis.strategies as st
 
-from ferris_elf.picoseconds import Picoseconds
+from ferris_elf.picoseconds import Picoseconds, format_picos
 
 
 def mk_binop_test(f, min_operand=0, max_operand=999_999):
@@ -117,6 +118,26 @@ class PicosecondsMath(RuleBasedStateMachine):
         while self.model > 9e9:
             self.uut //= 1000
             self.model //= 1000
+    
+    @invariant()
+    @precondition(lambda self: self.uut >= 0)
+    def check_format(self):
+        assert isinstance(self.uut, Picoseconds)
+        formatted = str(self.uut)
+        assert formatted[0].isnumeric()
+        match self.uut:
+            case Picoseconds(x) if x <= 1000:
+                assert formatted.endswith("ps")
+            case Picoseconds(x) if 1000 < x <= 1_000_000:
+                assert formatted.endswith("ns")
+            case Picoseconds(x) if 1_000_000 < x <= 1_000_000_000:
+                assert formatted.endswith("µs")
+            case Picoseconds(x) if 1_000_000_000 < x <= 1_000_000_000_000:
+                assert formatted.endswith("ms")
+            case Picoseconds(x) if 1_000_000_000_000 < x <= 60_000_000_000_000:
+                assert formatted.endswith("s")
+            case _:
+                warn(f"Formatting test encountered unknown case: {self.uut}")
 
 
 TestPicosecondsMath = PicosecondsMath.TestCase
