@@ -112,7 +112,7 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
     logger.info("Building temp dir to use as volume")
     # Step 1: Copy all the rust files
     script_dir = os.path.dirname(__file__)
-    runner_src_dir = os.path.join(script_dir, "runner")
+    runner_src_dir = os.path.join(script_dir, "../runner")
     # The ignores were causing problems with building
     # ignores = shutil.ignore_patterns("target/", "Dockerfile", "**/.gitkeep")
     ignores = shutil.ignore_patterns()
