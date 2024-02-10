@@ -1,11 +1,10 @@
-from functools import partialmethod
 import operator as op
 from warnings import warn
 
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule, precondition
 import hypothesis.strategies as st
 
-from ferris_elf.picoseconds import Picoseconds, format_picos
+from ferris_elf.picoseconds import Picoseconds
 
 
 def mk_binop_test(f, min_operand=0, max_operand=999_999):

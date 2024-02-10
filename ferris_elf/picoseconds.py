@@ -1,5 +1,5 @@
 import operator as op
-from typing import Literal, Optional, Self, Callable, overload
+from typing import Optional, Self, Callable
 from warnings import warn
 
 
