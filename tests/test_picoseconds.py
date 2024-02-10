@@ -118,7 +118,7 @@ class PicosecondsMath(RuleBasedStateMachine):
         while self.model > 9e9:
             self.uut //= 1000
             self.model //= 1000
-    
+
     @invariant()
     @precondition(lambda self: self.uut >= 0)
     def check_format(self):
