@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-import operator as op
-from typing import Optional, Self, Callable
-from warnings import warn
+from typing import Self
 
 
 def format_picos(ts: float | int) -> str:

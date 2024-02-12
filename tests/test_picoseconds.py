@@ -1,6 +1,4 @@
 import math
-import operator as op
-from warnings import warn
 
 from hypothesis import given, example
 import hypothesis.strategies as st
