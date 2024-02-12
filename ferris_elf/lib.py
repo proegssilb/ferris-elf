@@ -43,7 +43,7 @@ async def benchmark(
     op_name, op_id = ctx.author.name, ctx.author.id
 
     try:
-        results = []
+        results: list[RunResult] = []
 
         with Database() as db:
             (version_id, container_tag) = db.newest_container_version(
@@ -81,8 +81,12 @@ async def benchmark(
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
-            median = stats.mean([r.median for r in verified_results])
-            average = stats.mean([r.average for r in verified_results])
+            median = Picoseconds.from_picos(
+                stats.mean([r.median.as_picos() for r in verified_results])
+            )
+            average = Picoseconds.from_picos(
+                stats.mean([r.average.as_picos() for r in verified_results])
+            )
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
@@ -90,8 +94,8 @@ async def benchmark(
                 )
             )
         else:
-            median = stats.mean([r.median for r in results])
-            average = stats.mean([r.average for r in results])
+            median = Picoseconds.from_picos(stats.mean([r.median.as_picos() for r in results]))
+            average = Picoseconds.from_picos(stats.mean([r.average.as_picos() for r in results]))
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
