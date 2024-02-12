@@ -30,7 +30,6 @@ def test_nanos_id(x: float) -> None:
     assert delta <= 0.01
 
 
-
 @given(
     st.floats(
         min_value=-9e300,
