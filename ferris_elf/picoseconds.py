@@ -55,8 +55,8 @@ class Picoseconds:
         return cls(int(v * 1000))
 
     @classmethod
-    def from_picos(cls, v: int) -> Self:
-        return cls(v)
+    def from_picos(cls, v: int | float) -> Self:
+        return cls(int(v))
 
     def __int__(self) -> int:
         return self._value
