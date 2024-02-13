@@ -26,6 +26,7 @@ mypy = "^1.7.1"
 types-requests = "^2.31.0.10"
 hypothesis = "^6.98.2"
 pytest = "^8.0.0"
+pytest-md = "^0.2.0"
 
 [tool.ruff]
 line-length = 100
