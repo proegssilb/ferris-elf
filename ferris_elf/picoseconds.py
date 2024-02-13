@@ -35,10 +35,8 @@ def format_picos(ts: float | int) -> str:
         return f"{timestamp:.2f}{base}"
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class Picoseconds:
-    __slots__ = "_value"
-
     _value: int
 
     def __str__(self) -> str:
