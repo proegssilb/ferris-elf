@@ -21,13 +21,13 @@ from database import (
     AdventPart,
     AocInput,
     Database,
-    Picoseconds,
     SessionLabel,
     Submission,
     SubmissionId,
     Year,
 )
-from ferris_elf.runner import run_cmd
+from picoseconds import Picoseconds
+from containers import run_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def benchmark(
     op_name, op_id = ctx.author.name, ctx.author.id
 
     try:
-        results = []
+        results: list[RunResult] = []
 
         with Database() as db:
             (version_id, container_tag) = db.newest_container_version(
@@ -81,8 +81,12 @@ async def benchmark(
 
         verified_results = [r for r in results if r.verified]
         if len(verified_results) > 0:
-            median = stats.mean([r.median for r in verified_results])
-            average = stats.mean([r.average for r in verified_results])
+            median = Picoseconds.from_picos(
+                stats.mean([r.median.as_picos() for r in verified_results])
+            )
+            average = Picoseconds.from_picos(
+                stats.mean([r.average.as_picos() for r in verified_results])
+            )
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Verified)",
@@ -90,8 +94,8 @@ async def benchmark(
                 )
             )
         else:
-            median = stats.mean([r.median for r in results])
-            average = stats.mean([r.average for r in results])
+            median = Picoseconds.from_picos(stats.mean([r.median.as_picos() for r in results]))
+            average = Picoseconds.from_picos(stats.mean([r.average.as_picos() for r in results]))
             await ctx.reply(
                 embed=discord.Embed(
                     title="Benchmark complete (Unverified)",
@@ -112,7 +116,7 @@ def populate_tmp_dir(tmp_dir: str, solution_code: bytes) -> None:
     logger.info("Building temp dir to use as volume")
     # Step 1: Copy all the rust files
     script_dir = os.path.dirname(__file__)
-    runner_src_dir = os.path.join(script_dir, "runner")
+    runner_src_dir = os.path.join(script_dir, "../runner")
     # The ignores were causing problems with building
     # ignores = shutil.ignore_patterns("target/", "Dockerfile", "**/.gitkeep")
     ignores = shutil.ignore_patterns()

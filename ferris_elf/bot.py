@@ -10,11 +10,12 @@ from discord import app_commands
 from dynaconf import ValidationError
 
 import constants
+from picoseconds import Picoseconds
 import lib
 from config import settings
-from database import AdventDay, AdventPart, Database, Picoseconds, SubmissionId, Year
+from database import AdventDay, AdventPart, Database, SubmissionId, Year
 from error_handler import ErrorHandlerCog
-from ferris_elf.runner import bg_update
+from containers import bg_update
 
 logger = logging.getLogger(__name__)
 
