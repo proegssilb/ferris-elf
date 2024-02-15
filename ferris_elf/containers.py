@@ -6,9 +6,9 @@ import urllib.parse
 
 import docker
 import aiohttp as ah
-from database import Database, ContainerTag
+from .database import Database, ContainerTag
 
-from config import settings
+from .config import settings
 
 doc = docker.from_env()
 

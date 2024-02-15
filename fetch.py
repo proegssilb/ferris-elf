@@ -7,10 +7,10 @@ from typing import cast
 
 import requests
 
-import lib
-from config import settings
-from lib import today
-from database import AdventDay, Database, Year
+from ferris_elf import lib
+from ferris_elf.config import settings
+from ferris_elf.lib import today
+from ferris_elf.database import AdventDay, Database, Year
 
 keys = settings.aoc_auth.tokens
 
