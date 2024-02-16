@@ -9,13 +9,13 @@ from discord.ext import commands
 from discord import app_commands
 from dynaconf import ValidationError
 
-import constants
-from picoseconds import Picoseconds
-import lib
-from config import settings
-from database import AdventDay, AdventPart, Database, SubmissionId, Year
-from error_handler import ErrorHandlerCog
-from containers import bg_update
+from . import constants
+from .picoseconds import Picoseconds
+from . import lib
+from .config import settings
+from .database import AdventDay, AdventPart, Database, SubmissionId, Year
+from .error_handler import ErrorHandlerCog
+from .containers import bg_update
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,9 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self) -> None:
         await asyncio.gather(
-            bot.add_cog(Commands(bot)),
-            bot.add_cog(ErrorHandlerCog(bot)),
-            bot.add_cog(ModCommands(bot)),
+            self.add_cog(Commands(self)),
+            self.add_cog(ErrorHandlerCog(self)),
+            self.add_cog(ModCommands(self)),
         )
 
     async def on_ready(self) -> None:
@@ -216,7 +216,7 @@ class ModCommands(commands.Cog):
             results = db.get_user_submissions(lib.year(), day, part, user.id)
 
         results.sort(
-            key=(lambda r: r.average_time or Picoseconds(5e12))
+            key=(lambda r: (r.average_time or Picoseconds.from_picos(5e12)).as_picos())
         )  # Default to 5s while sorting
         results = results[:10]
         results.sort(key=(lambda r: r.id))
@@ -336,7 +336,7 @@ async def periodic_check_caller() -> None:
         await asyncio.sleep(60 * 30)
 
 
-if __name__ == "__main__":
+def main() -> None:
     logformat = "%(asctime)s:%(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(
         encoding="utf-8", level=logging.INFO, datefmt="%a, %d %b %Y %H:%M:%S %z", format=logformat

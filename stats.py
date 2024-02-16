@@ -1,6 +1,6 @@
 import sqlite3
 
-from config import settings
+from ferris_elf.config import settings
 
 db = sqlite3.connect(settings.db.filename)
 cur = db.cursor()

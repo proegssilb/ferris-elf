@@ -14,9 +14,9 @@ import docker
 import discord
 from discord.ext import commands
 
-from config import settings
-import constants
-from database import (
+from .config import settings
+from . import constants
+from .database import (
     AdventDay,
     AdventPart,
     AocInput,
@@ -26,8 +26,8 @@ from database import (
     SubmissionId,
     Year,
 )
-from picoseconds import Picoseconds
-from containers import run_cmd
+from .picoseconds import Picoseconds
+from .containers import run_cmd
 
 logger = logging.getLogger(__name__)
 

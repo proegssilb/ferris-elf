@@ -17,8 +17,8 @@ from typing import (
 from dataclasses import dataclass
 import gzip
 
-import config
-from picoseconds import Picoseconds
+from . import config
+from .picoseconds import Picoseconds
 
 if TYPE_CHECKING:
     from lib import RunResult

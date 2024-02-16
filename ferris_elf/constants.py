@@ -1,6 +1,6 @@
 from typing import Literal
 import discord
-from config import settings
+from .config import settings
 
 SUPPORTED_BENCH_FORMAT: int = 1
 
